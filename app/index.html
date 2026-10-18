@@ -383,7 +383,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
   <div class="card">
     <h2>表現 (舐められない言い方)</h2>
     <div class="row"><span class="pill" id="exTheme">テーマ</span><span class="grow"></span><span class="prog" id="exDate"></span></div>
-    <div id="exEmpty" class="muted">今日の3表現をClaudeに作ってもらいます。丁寧すぎず、米国のオフィスで実際に使われる率直な言い方を選びます。</div>
+    <div id="exEmpty" class="muted">テーマ別の表現140本(米国ネイティブ音声付き)から、毎日3つ。丁寧すぎず、米国のオフィスで実際に使われる率直な言い方です。</div>
     <button id="exGen" class="btn primary block">今日の表現を出す</button>
     <div id="exStatus" class="muted" hidden></div>
     <div id="exList" class="list" hidden></div>
@@ -549,11 +549,20 @@ function playClip(f, s, e, rate = 1, quiet = false) {
     return true;
   } catch (err) { if (!quiet) toast("再生できませんでした"); return false; }
 }
+/* Device speech synthesis is the fallback only (Claude-generated text has no recorded audio). On iOS, cancel()
+   immediately followed by speak() drops the new utterance, so the second call is deferred. */
 function speak(text) {
   if (!("speechSynthesis" in window)) { toast("この端末では読み上げできません"); return; }
   const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = 0.95;
-  const v = speechSynthesis.getVoices().find((x) => x.lang === "en-US") ; if (v) u.voice = v;
-  speechSynthesis.cancel(); speechSynthesis.speak(u);
+  const v = speechSynthesis.getVoices().find((x) => x.lang === "en-US"); if (v) u.voice = v;
+  const go = () => { try { speechSynthesis.speak(u); } catch (e) { toast("読み上げできませんでした"); } };
+  if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(go, 150); } else go();
+}
+/* Recorded audio for an expression / phrase item ({f, s, e} for the line, {xs, xe} for its example), when it has one. */
+function playItem(files, it, example) {
+  if (!it || !it.f || !files[it.f]) return false;
+  const s = example ? it.xs : it.s, e = example ? it.xe : it.e; if (s == null || e == null) return false;
+  playClip(files[it.f], s, e, 1); return true;
 }
 function playWord(w, rate, quiet) { if (w.f && FILES[w.f]) return playClip(w.f, w.ws, w.we, rate, quiet); speak(w.w); }
 function playPhrase(w, rate, quiet) { if (w.f && FILES[w.f] && w.ph) return playClip(w.f, w.ps, w.pe, rate, quiet); speak(w.ph || w.w); }
@@ -1045,16 +1054,42 @@ function renderWrHistory() {
 
 /* ---------- EXPR ---------- */
 const THEMES = ["会議で反論する", "進捗を催促する", "依頼を断る", "価格・条件の交渉", "ランチの雑談", "依頼・お願い", "問題発生時の報告", "提案を通す", "意見をはっきり言う", "相手の意図を確認する", "褒める・感謝する", "締め切りを守らせる", "会議を仕切る", "メールの書き出しと締め"];
+/* Expression bank (expr_bank.json, 140 recorded expressions by theme). Today's three come from the bank for the
+   day's theme, skipping ones already marked learned (profile.exDone); Claude-generated extras stay available. */
+let BANK = [], BANK_FILES = {}, YTA = { files: {}, clips: {} };
+async function loadBank() {
+  try { const r = await fetch("expr_bank.json", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); const j = await r.json(); BANK = j.items || []; BANK_FILES = j.files || {}; } catch (e) { BANK = []; BANK_FILES = {}; }
+  try { const r = await fetch("yt_audio.json", { cache: "no-store" }); if (r.ok) { const j = await r.json(); YTA = { files: j.files || {}, clips: j.clips || {} }; } } catch (e) {}
+}
+function bankPick(theme) {
+  const done = profile.exDone || {};
+  const seed = Number(today.replace(/-/g, ""));
+  let pool = BANK.filter((x) => x.theme === theme && !done[x.id]);
+  if (pool.length < 3) pool = pool.concat(seededShuffle(BANK.filter((x) => x.theme !== theme && !done[x.id]), seed));
+  return seededShuffle(pool, seed).slice(0, 3);
+}
 function renderExpr() {
   const theme = THEMES[Math.floor(Date.now() / 86400000) % THEMES.length];
   $("exTheme").textContent = "テーマ: " + theme; $("exDate").textContent = today.slice(5).replace("-", "/");
-  const has = exprDoc && exprDoc.date === today && Array.isArray(exprDoc.items);
-  $("exEmpty").hidden = has; $("exGen").hidden = has || !sampleFn; $("exList").hidden = !has; $("exDone").hidden = !has || !!day().menu.expr;
-  $("exStatus").hidden = !!sampleFn || has; if (!sampleFn && !has) $("exStatus").textContent = "表現の生成はClaudeアプリ内で開くと使えます。";
-  if (has) $("exList").innerHTML = exprDoc.items.map((it, i) => '<div class="item"><div class="phrase">' + esc(it.en) + '</div><div class="ja">' + esc(it.ja) + '</div><div class="muted">' + esc(it.when) + '</div><div class="en muted">' + esc(it.example) + '</div><div><button class="btn small" data-say="' + i + '">読み上げ</button></div></div>').join("");
+  let has = exprDoc && exprDoc.date === today && Array.isArray(exprDoc.items) && exprDoc.items.length;
+  if (!has && BANK.length) {
+    const picks = bankPick(theme);
+    if (picks.length) { exprDoc = { date: today, theme, src: "bank", items: picks.map((x) => ({ id: x.id, en: x.en, ja: x.ja, example: x.example, when: x.when, f: x.f, s: x.s, e: x.e, xs: x.xs, xe: x.xe })) }; save("expr/" + today, exprDoc); has = true; }
+  }
+  $("exEmpty").hidden = !!has; $("exGen").hidden = !sampleFn; $("exList").hidden = !has; $("exDone").hidden = !has || !!day().menu.expr;
+  $("exGen").textContent = has ? "Claudeに別の3つを作ってもらう (音声なし)" : "今日の表現を出す";
+  $("exStatus").hidden = !!sampleFn || !!has; if (!sampleFn && !has) $("exStatus").textContent = "表現データを読み込めませんでした。";
+  if (has) {
+    [...new Set(exprDoc.items.map((it) => it.f).filter(Boolean))].forEach((f) => prefetchMedia(BANK_FILES[f]));
+    $("exList").innerHTML = exprDoc.items.map((it, i) => '<div class="item"><div class="phrase">' + esc(it.en) + '</div><div class="ja">' + esc(it.ja) + '</div><div class="muted">' + esc(it.when) + '</div><div class="en muted">' + esc(it.example) + '</div><div class="row"><button class="btn small" data-say="' + i + '" type="button">▶ 表現</button>' + (it.example ? '<button class="btn small" data-sayx="' + i + '" type="button">▶ 例文</button>' : "") + (it.f ? "" : '<span class="muted">端末の読み上げ</span>') + "</div></div>").join("");
+  }
   renderYt();
 }
-$("exList").addEventListener("click", (ev) => { const b = ev.target.closest("[data-say]"); if (b && exprDoc) speak(exprDoc.items[Number(b.dataset.say)].example || exprDoc.items[Number(b.dataset.say)].en); });
+$("exList").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-say],[data-sayx]"); if (!b || !exprDoc) return;
+  const ex = b.hasAttribute("data-sayx"); const it = exprDoc.items[Number(ex ? b.dataset.sayx : b.dataset.say)]; if (!it) return;
+  if (!playItem(BANK_FILES, it, ex)) speak(ex ? (it.example || it.en) : it.en);
+});
 $("exGen").addEventListener("click", async () => {
   const theme = THEMES[Math.floor(Date.now() / 86400000) % THEMES.length];
   $("exGen").disabled = true; $("exStatus").hidden = false; $("exStatus").textContent = "作成中... (10〜30秒)";
@@ -1071,7 +1106,11 @@ $("exGen").addEventListener("click", async () => {
     const code = e && e.code; $("exStatus").textContent = code === "not_granted" ? "Claudeの利用が許可されていないため作成できません。" : "作成に失敗しました。もう一度試してください。";
   } finally { $("exGen").disabled = false; }
 });
-$("exDone").addEventListener("click", () => { const d = day(); if (!d.menu.expr) { d.menu.expr = true; d.ex += 3; addXp(XP.expr); saveDay(); } $("exDone").hidden = true; toast("+" + XP.expr + " XP"); });
+$("exDone").addEventListener("click", () => {
+  const d = day(); if (!d.menu.expr) { d.menu.expr = true; d.ex += 3; addXp(XP.expr); saveDay(); }
+  if (exprDoc && exprDoc.items) { profile.exDone = profile.exDone || {}; exprDoc.items.forEach((it) => { if (it.id) profile.exDone[it.id] = today; }); saveProfile(); }
+  $("exDone").hidden = true; toast("+" + XP.expr + " XP");
+});
 
 /* ---------- EXPR: YouTube phrases (expr_yt.json) ---------- */
 let YT = [], YTBY = {}, ytDone = {}, ytToday = null;
@@ -1113,18 +1152,20 @@ function renderYt() {
   const ids = ytToday.ids.filter((id) => YTBY[id]);
   if (!ids.length) { $("ytStatus").hidden = false; $("ytStatus").textContent = "全部覚えました。新しい動画を見たら追加します。"; $("ytList").hidden = true; $("ytMore").hidden = true; return; }
   $("ytStatus").hidden = true; $("ytList").hidden = false;
+  [...new Set(ids.map((id) => YTA.clips[id] && YTA.clips[id].f).filter(Boolean))].forEach((f) => prefetchMedia(YTA.files[f]));
   $("ytList").innerHTML = ids.map((id) => {
     const it = YTBY[id]; const done = !!ytDone[id];
     return '<div class="item" data-yt="' + esc(id) + '"' + (done ? ' style="opacity:.55"' : "") + '><div class="phrase">' + esc(it.en) + '</div><div class="ja">' + esc(it.ja) + '</div>'
       + (it.ex && it.ex !== it.en ? '<div class="en muted">' + esc(it.ex) + '</div>' : "")
       + '<div class="muted" style="font-size:12px">出典: <a href="' + esc(it.url) + '" target="_blank" rel="noopener">' + esc(it.source) + '</a></div>'
-      + '<div class="row"><button class="btn small" data-ysay="' + esc(id) + '">読み上げ</button><button class="btn small' + (done ? "" : " primary") + '" data-ydone="' + esc(id) + '"' + (done ? " disabled" : "") + '>' + (done ? "✓ 覚えた" : "覚えた") + '</button></div></div>';
+      + '<div class="row"><button class="btn small" data-ysay="' + esc(id) + '" type="button">▶ フレーズ</button>' + (YTA.clips[id] && YTA.clips[id].xs != null ? '<button class="btn small" data-ysayx="' + esc(id) + '" type="button">▶ 例文</button>' : "") + '<button class="btn small' + (done ? "" : " primary") + '" data-ydone="' + esc(id) + '"' + (done ? " disabled" : "") + '>' + (done ? "✓ 覚えた" : "覚えた") + '</button></div></div>';
   }).join("");
   const allDone = ids.every((id) => ytDone[id]);
   $("ytMore").hidden = !allDone || YT.filter((x) => !ytDone[x.id] && !ytToday.ids.includes(x.id)).length === 0;
 }
 $("ytList").addEventListener("click", (ev) => {
-  const s = ev.target.closest("[data-ysay]"); if (s) { const it = YTBY[s.dataset.ysay]; if (it) speak(it.ex && it.ex.length > it.en.length ? it.en + ". " + it.ex : it.en); return; }
+  const s = ev.target.closest("[data-ysay],[data-ysayx]");
+  if (s) { const ex = s.hasAttribute("data-ysayx"); const id = ex ? s.dataset.ysayx : s.dataset.ysay; const it = YTBY[id]; if (!it) return; const c = YTA.clips[id]; if (!playItem(YTA.files, c, ex)) speak(ex ? (it.ex || it.en) : it.en); return; }
   const b = ev.target.closest("[data-ydone]"); if (!b) return;
   const id = b.dataset.ydone; if (!YTBY[id] || ytDone[id]) return;
   ytDone[id] = today; saveYtDone();
@@ -1291,7 +1332,7 @@ async function loadState() {
 }
 (async () => {
   renderHome();
-  await Promise.all([loadWords(), loadYt(), loadDialogues(), loadSpeakPrompts()]);
+  await Promise.all([loadWords(), loadYt(), loadDialogues(), loadSpeakPrompts(), loadBank()]);
   renderHome();
   await loadState();
   applyPronHash();
