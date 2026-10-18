@@ -361,7 +361,8 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
     <div class="row"><button class="btn small ghost" id="wrSay" type="button"><svg class="i"><use href="#i-play"/></svg>相手のセリフを聞く</button><span id="wrHint" class="muted"></span></div>
     <a id="wrSpeak" class="btn primary block" href="#" target="_blank" rel="noopener"><svg class="i"><use href="#i-mic"/></svg>声で答える (Safariで開く)</a>
     <div class="muted">話した内容がそのままここに戻ってきて添削されます。道場の中で話すなら、下の入力欄をタップしてキーボードのマイクで話してください。</div>
-    <textarea id="wrInput" placeholder="英語で答える (話した内容をそのまま)" autocapitalize="sentences"></textarea>
+    <div id="wrPasteNote" class="note" hidden>話した英文をコピー済みです。下の入力欄を長押し→「ペースト」で貼り付けると、添削が自動で始まります。</div>
+    <textarea id="wrInput" placeholder="英語で答える (話した内容をそのまま)" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
     <button id="wrGrade" class="btn block">添削してもらう</button>
     <div id="wrStatus" class="muted" hidden></div>
     <div id="wrResult" hidden style="display:flex;flex-direction:column;gap:10px">
@@ -1003,7 +1004,7 @@ function renderWrite() {
   if (spForced && SP.find((p) => p.id === spForced)) { spCur = SP.find((p) => p.id === spForced); }
   else if (P.length) { const base = Math.floor(Date.now() / 86400000) % P.length; spCur = P[(base + (profile.wrOffset || 0)) % P.length]; }
   else { const i = (Math.floor(Date.now() / 86400000) + (profile.wrOffset || 0)) % PROMPTS.length; spCur = { id: "w" + i, cat: "biz", scene: PROMPTS[i][0], partner: "", hint: PROMPTS[i][1] }; }
-  $("spCat").value = profile.spCat || "all";
+  $("spCat").value = profile.spCat || "all"; if (!spForced) $("wrPasteNote").hidden = true;
   $("wrPrompt").textContent = (spCur.cat === "biz" ? "ビジネス: " : "日常: ") + spCur.scene;
   $("wrPartner").textContent = spCur.partner || ""; $("wrPartner").hidden = !spCur.partner; $("wrSay").hidden = !spCur.partner;
   $("wrHint").textContent = spCur.hint ? "ヒント: " + spCur.hint : "";
@@ -1042,13 +1043,24 @@ $("wrGrade").addEventListener("click", gradeSpeaking);
 function b64urlDecode(s) { try { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return decodeURIComponent(escape(atob(s))); } catch (e) { return ""; } }
 /* #sp.<id>.<base64url transcript> from the speak page: show that prompt, fill the answer, and grade it right away. */
 function applySpeakHash() {
-  const m = /^#sp\.([A-Za-z0-9]+)\.([A-Za-z0-9_-]+)$/.exec(location.hash || ""); if (!m) return false;
+  const h = location.hash || "";
+  /* #spk07: the speak page copied the transcript to the clipboard; open that prompt and ask for a paste */
+  const k = /^#spk(\d{1,3})$/.exec(h);
+  if (k) {
+    spForced = "s" + String(Number(k[1])).padStart(2, "0"); try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    go("write"); $("wrInput").value = ""; $("wrResult").hidden = true; $("wrPasteNote").hidden = false;
+    setTimeout(() => { try { $("wrInput").focus(); } catch (e) {} }, 300);
+    return true;
+  }
+  const m = /^#sp\.([A-Za-z0-9]+)\.([A-Za-z0-9_-]+)$/.exec(h); if (!m) return false;
   const text = b64urlDecode(m[2]); if (!text) return false;
   spForced = m[1]; try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
   go("write"); $("wrInput").value = text; $("wrResult").hidden = true;
   if (sampleFn) gradeSpeaking(); else toast("話した内容を入れました。Claudeアプリ内なら添削できます");
   return true;
 }
+/* a paste into the empty answer box right after coming back from the speak page starts the correction by itself */
+$("wrInput").addEventListener("paste", () => { if ($("wrPasteNote").hidden) return; setTimeout(() => { $("wrPasteNote").hidden = true; if ($("wrInput").value.trim().length >= 6 && sampleFn) gradeSpeaking(); }, 250); });
 function renderWrHistory() {
   $("wrHistory").innerHTML = writings.length ? writings.slice(0, 5).map((w) => '<div class="item"><div class="row"><span class="prog">' + esc(w.date) + '</span><span class="grow"></span><span class="score">' + w.score + '点</span></div><div class="muted">' + esc(w.prompt) + '</div><div class="en">' + esc(w.corrected) + '</div></div>').join("") : '<div class="muted">まだありません。</div>';
 }

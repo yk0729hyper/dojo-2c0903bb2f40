@@ -96,8 +96,9 @@ h2 { font-size: 18px; margin: 0; font-weight: 700; text-wrap: balance; }
     <div class="center"><button id="spRec" class="rec" type="button" aria-label="録音"><svg class="i"><use href="#i-mic"/></svg></button><div class="muted" id="spStatus">タップして、会話で返すように話す (止めるときにもう一度タップ)</div></div>
     <div class="heard" id="spHeard"></div>
     <div class="row"><button id="spRetry" class="btn small" type="button" disabled>言い直す</button><span class="grow"></span><span class="muted">聞き取った英文は編集せず、そのまま添削に出します</span></div>
-    <button id="spGo" class="btn primary block" type="button" disabled>道場で添削してもらう</button>
-    <div class="muted">道場(claude.ai)が開き、ネイティブならどう返すかと、直すべき点が出ます。</div>
+    <button id="spGo" class="btn primary block" type="button" disabled>コピーして道場で添削してもらう</button>
+    <a id="spGoDojo" class="btn block" href="#" hidden>道場へ</a>
+    <div class="muted">話した英文をコピーして道場(claude.ai)を開きます。道場の入力欄を長押し→「ペースト」で貼り付けると添削が始まります。</div>
   </section>
 </main>
 <div id="toast" role="status"></div>
@@ -174,12 +175,19 @@ $("spSay").addEventListener("click", () => {
 });
 $("spNext").addEventListener("click", () => { if (live) stopRec(); cur = pick(true); render(); });
 $("spCat").addEventListener("change", () => { st.cat = $("spCat").value; saveSt(); cur = pick(false); render(); });
-/* The transcript travels to the dojo in the URL hash (#sp.<id>.<base64url>), the only channel the dojo page can read. */
-$("spGo").addEventListener("click", () => {
+/* The dojo page can only read a short plain hash, so the transcript goes over on the clipboard (copied inside this
+   tap) and the hash carries just the prompt number (#spk07); the dojo opens that prompt and asks for a paste. */
+$("spGo").addEventListener("click", async () => {
   if (!text) return;
   st.done++; saveSt();
-  location.href = DOJO + "#sp." + cur.id + "." + b64url(text.slice(0, 600));
+  let copied = false;
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); copied = true; } } catch (e) {}
+  if (!copied) { try { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.focus(); ta.select(); copied = document.execCommand("copy"); ta.remove(); } catch (e) {} }
+  const n = String(cur.id).replace(/\D/g, "") || "1";
+  if (copied) { toast("コピーしました。道場で貼り付けてください"); setTimeout(() => { location.href = DOJO + "#spk" + n; }, 400); }
+  else { $("spStatus").textContent = "コピーできませんでした。上の英文を長押しでコピーしてから道場へ"; $("spHeard").setAttribute("contenteditable", "false"); $("spGoDojo").hidden = false; $("spGoDojo").href = DOJO + "#spk" + n; }
 });
+$("spGoDojo").addEventListener("click", (ev) => { ev.preventDefault(); location.href = $("spGoDojo").href; });
 $("hdDojo").addEventListener("click", () => { location.href = DOJO; });
 (async () => {
   if (!SR) $("noSr").hidden = false;
