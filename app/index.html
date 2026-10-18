@@ -348,18 +348,21 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
 <!-- ================= WRITE ================= -->
 <section id="v-write" class="view" hidden>
   <div class="card">
-    <h2>英作文 (ビジネス)</h2>
-    <div class="row"><span class="pill">今日のお題</span><span class="grow"></span><button class="btn small" id="wrAnother">別のお題</button></div>
-    <div id="wrPrompt" class="ja"></div>
-    <div id="wrHint" class="muted"></div>
-    <textarea id="wrInput" placeholder="英語で書く (3〜6文が目安)" autocapitalize="sentences"></textarea>
-    <button id="wrGrade" class="btn primary block">添削してもらう</button>
+    <h2>スピーキング (会話で返す)</h2>
+    <div class="row"><select id="spCat" class="btn small"><option value="all">日常 + ビジネス</option><option value="daily">日常会話</option><option value="biz">ビジネス会話</option></select><span class="grow"></span><button class="btn small" id="wrAnother">別のお題</button></div>
+    <div id="wrPrompt" class="muted"></div>
+    <div class="phrase" id="wrPartner" style="background:var(--bg);border-radius:14px;padding:10px 14px;font-size:19px"></div>
+    <div class="row"><button class="btn small ghost" id="wrSay" type="button"><svg class="i"><use href="#i-play"/></svg>相手のセリフを聞く</button><span id="wrHint" class="muted"></span></div>
+    <a id="wrSpeak" class="btn primary block" href="#" target="_blank" rel="noopener"><svg class="i"><use href="#i-mic"/></svg>声で答える (Safariで開く)</a>
+    <div class="muted">話した内容がそのままここに戻ってきて添削されます。道場の中で話すなら、下の入力欄をタップしてキーボードのマイクで話してください。</div>
+    <textarea id="wrInput" placeholder="英語で答える (話した内容をそのまま)" autocapitalize="sentences"></textarea>
+    <button id="wrGrade" class="btn block">添削してもらう</button>
     <div id="wrStatus" class="muted" hidden></div>
     <div id="wrResult" hidden style="display:flex;flex-direction:column;gap:10px">
-      <div class="row"><span class="big"><span id="wrScore">0</span><small>/100</small></span></div>
-      <div><h3>直した英文</h3><div class="phrase" id="wrCorrected"></div></div>
+      <div class="row"><span class="big"><span id="wrScore">0</span><small>/100</small></span><span class="grow"></span><span class="prog" id="wrVerdict"></span></div>
+      <div><h3>ネイティブならこう返す</h3><div class="phrase" id="wrCorrected"></div><div class="row" style="margin-top:6px"><button class="btn small ghost" id="wrSayFix" type="button"><svg class="i"><use href="#i-play"/></svg>読み上げ</button></div></div>
       <div><h3>指摘</h3><ul class="issues" id="wrIssues"></ul></div>
-      <div><h3>アメリカ人ならこう言う</h3><div class="list" id="wrNatural"></div></div>
+      <div><h3>別の言い方</h3><div class="list" id="wrNatural"></div></div>
       <div class="note" id="wrTip"></div>
     </div>
   </div>
@@ -440,7 +443,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
   <button data-go="home" class="on"><svg class="i"><use href="#i-home"/></svg>ホーム</button>
   <button data-go="vocab"><svg class="i"><use href="#i-cards"/></svg>単語</button>
   <button data-go="listen"><svg class="i"><use href="#i-ear"/></svg>聞く</button>
-  <button data-go="write"><svg class="i"><use href="#i-pen"/></svg>書く</button>
+  <button data-go="write"><svg class="i"><use href="#i-mic"/></svg>話す</button>
   <button data-go="expr"><svg class="i"><use href="#i-chat"/></svg>表現</button>
 </nav>
 <audio id="player" preload="auto"></audio>
@@ -615,7 +618,7 @@ function renderHome() {
   const items = [
     { k: "vocab", t: "単語", s: "復習 " + plan.due.length + " / 新規 " + plan.fresh.length + " 語", xp: "+" + (plan.due.length * XP.review + plan.fresh.length * XP.newWord) },
     { k: "listen", t: "リスニング", s: "自然な会話1本: 聞く→設問3問→書き取り", xp: "+25まで" },
-    { k: "write", t: "英作文", s: "お題1本をClaudeが添削", xp: "+" + XP.write },
+    { k: "write", t: "スピーキング", s: "会話のお題に声で返し、Claudeが添削", xp: "+" + XP.write },
     { k: "expr", t: "表現", s: "今日の3表現を音読", xp: "+" + XP.expr },
     { k: "pron", t: "発音", s: d.pron != null ? "今日の一致率 " + d.pron + "%" : "10フレーズを声に出して判定", xp: "+" + XP.pron },
   ];
@@ -653,7 +656,7 @@ function renderHome() {
   const sk = [
     { n: "語彙", v: mature, max: 1000, label: mature + " 語定着", pct: mature / 10 },
     { n: "リスニング", v: la, label: la == null ? "未計測" : Math.round(la * 100) + "%", pct: la == null ? 0 : la * 100 },
-    { n: "英作文", v: wa, label: wa == null ? "未計測" : Math.round(wa) + "点", pct: wa == null ? 0 : wa },
+    { n: "スピーキング", v: wa, label: wa == null ? "未計測" : Math.round(wa) + "点", pct: wa == null ? 0 : wa },
     { n: "表現", v: exN, label: exN + " 表現", pct: Math.min(100, exN / 1.5) },
     { n: "発音", v: pa, label: pa == null ? "未計測" : Math.round(pa) + "%", pct: pa == null ? 0 : pa },
   ];
@@ -909,36 +912,64 @@ const PROMPTS = [
   ["相手のメールの意図が曖昧。確認の質問をする。", "'Just to confirm' などの型。"],
   ["退職する米国人同僚へ送別のメッセージ。", "一緒に仕事した具体的な思い出を。"],
 ];
-let wrIdx = 0;
+/* Speaking: conversational prompts (speak_prompts.json). The learner answers the partner's line by voice: either on the
+   GitHub Pages speak page (the transcript comes back in the hash as #sp.<id>.<base64url>) or by iOS keyboard dictation
+   into the textarea. The old written prompts above stay as a fallback when the prompt file cannot be loaded. */
+let SP = [], spCur = null, spForced = null;
+async function loadSpeakPrompts() {
+  try { const r = await fetch("speak_prompts.json", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); SP = (await r.json()).prompts || []; } catch (e) { SP = []; }
+}
+function spPool() { const c = profile.spCat || "all"; return c === "all" ? SP : SP.filter((p) => p.cat === c); }
 function renderWrite() {
-  const base = Math.floor((Date.now() / 86400000)) % PROMPTS.length;
-  wrIdx = (base + (profile.wrOffset || 0)) % PROMPTS.length;
-  $("wrPrompt").textContent = PROMPTS[wrIdx][0]; $("wrHint").textContent = "ヒント: " + PROMPTS[wrIdx][1];
+  const P = spPool();
+  if (spForced && SP.find((p) => p.id === spForced)) { spCur = SP.find((p) => p.id === spForced); }
+  else if (P.length) { const base = Math.floor(Date.now() / 86400000) % P.length; spCur = P[(base + (profile.wrOffset || 0)) % P.length]; }
+  else { const i = (Math.floor(Date.now() / 86400000) + (profile.wrOffset || 0)) % PROMPTS.length; spCur = { id: "w" + i, cat: "biz", scene: PROMPTS[i][0], partner: "", hint: PROMPTS[i][1] }; }
+  $("spCat").value = profile.spCat || "all";
+  $("wrPrompt").textContent = (spCur.cat === "biz" ? "ビジネス: " : "日常: ") + spCur.scene;
+  $("wrPartner").textContent = spCur.partner || ""; $("wrPartner").hidden = !spCur.partner; $("wrSay").hidden = !spCur.partner;
+  $("wrHint").textContent = spCur.hint ? "ヒント: " + spCur.hint : "";
+  $("wrSpeak").href = PRON_URL + "speak.html?p=" + encodeURIComponent(spCur.id);
   $("wrGrade").hidden = !sampleFn; $("wrStatus").hidden = !!sampleFn; if (!sampleFn) $("wrStatus").textContent = "添削機能はClaudeアプリ内で開くと使えます。";
   renderWrHistory();
 }
-$("wrAnother").addEventListener("click", () => { profile.wrOffset = (profile.wrOffset || 0) + 1; saveProfile(); renderWrite(); $("wrResult").hidden = true; });
-$("wrGrade").addEventListener("click", async () => {
-  const ans = $("wrInput").value.trim(); if (ans.length < 10) return toast("もう少し書いてから添削しましょう");
+$("spCat").addEventListener("change", () => { profile.spCat = $("spCat").value; spForced = null; saveProfile(); renderWrite(); $("wrResult").hidden = true; });
+$("wrAnother").addEventListener("click", () => { profile.wrOffset = (profile.wrOffset || 0) + 1; spForced = null; saveProfile(); renderWrite(); $("wrResult").hidden = true; });
+$("wrSay").addEventListener("click", () => spCur && spCur.partner && speak(spCur.partner));
+$("wrSayFix").addEventListener("click", () => { const t = $("wrCorrected").textContent; if (t) speak(t); });
+async function gradeSpeaking() {
+  const ans = $("wrInput").value.trim(); if (ans.length < 6) return toast("もう少し話してから添削しましょう");
+  if (!sampleFn) return toast("添削はClaudeアプリ内で開くと使えます");
   const btn = $("wrGrade"); btn.disabled = true; $("wrStatus").hidden = false; $("wrStatus").textContent = "添削中... (10〜30秒)"; $("wrResult").hidden = true;
-  const prompt = "あなたはTOEIC満点のビジネス英語コーチです。日本人学習者(目標TOEIC900点、米国企業と日常的に仕事をする)が書いた英文を添削してください。\n\nお題: " + PROMPTS[wrIdx][0] + "\n\n学習者の英文:\n" + ans.slice(0, 3000)
-    + "\n\nJSONオブジェクトのみで返答してください(他の文章は不要)。形式:\n{\"score\": 0から100の整数(文法・語彙・自然さ・目的達成度の総合), \"corrected\": \"学習者の文を活かしつつ自然で簡潔なビジネス英語に直した全文\", \"issues\": [{\"type\": \"文法|語彙|語調|構成\", \"ja\": \"日本語で短い指摘(元の表現→直した表現)\"}], \"natural\": [\"アメリカ人ビジネスパーソンならこう書くという別案(1〜2文)\", \"もう1案\"], \"tip\": \"TOEICやビジネスに効く一言アドバイス(日本語)\"}";
+  const prompt = "あなたは米国企業で働く日本人向けの英会話コーチです。学習者(目標TOEIC900点、米国人と日常的に話す)が、会話の中で口頭で返した内容(音声認識の文字起こし。句読点や大文字は不正確でよい)を評価してください。書き言葉ではなく『話し言葉として自然か、相手に意図が伝わるか、舐められない率直さがあるか』の観点で。\n\n場面: " + spCur.scene + (spCur.partner ? "\n相手のセリフ: " + spCur.partner : "") + "\n\n学習者の返答(話した内容):\n" + ans.slice(0, 2000)
+    + "\n\nJSONオブジェクトのみで返答してください(他の文章は不要)。形式:\n{\"score\": 0から100の整数(伝わりやすさ・自然さ・場面への適切さの総合。音声認識の誤りと思われる部分は減点しない), \"verdict\": \"一言の総評(日本語、12字以内)\", \"corrected\": \"同じ内容をアメリカ人ならこう返す、という自然な話し言葉(1〜3文。短縮形を使う)\", \"issues\": [{\"type\": \"文法|語彙|語調|長さ|構成\", \"ja\": \"日本語で短い指摘(元の表現→直した表現)。最大4つ\"}], \"natural\": [\"別の返し方(もっと短い/もっと率直な)\", \"もう1案\"], \"tip\": \"次に話すときに意識する一言(日本語)\"}";
   try {
     const r = await sampleFn.json(prompt, { cache: false });
     const score = Math.max(0, Math.min(100, Number(r.score) || 0));
-    $("wrScore").textContent = score; $("wrCorrected").textContent = String(r.corrected || "");
+    $("wrScore").textContent = score; $("wrVerdict").textContent = String(r.verdict || ""); $("wrCorrected").textContent = String(r.corrected || "");
     $("wrIssues").innerHTML = (Array.isArray(r.issues) ? r.issues : []).map((i) => "<li><b>" + esc(i.type) + "</b> " + esc(i.ja) + "</li>").join("") || "<li>大きな問題はありません。</li>";
     $("wrNatural").innerHTML = (Array.isArray(r.natural) ? r.natural : []).map((s) => '<div class="phrase">' + esc(s) + "</div>").join("");
     $("wrTip").textContent = String(r.tip || ""); $("wrResult").hidden = false; $("wrStatus").hidden = true;
     const d = day(); d.wc++; d.ws += score; d.menu.write = true; addXp(XP.write); saveDay();
-    const rec = { date: today, ts: Date.now(), prompt: PROMPTS[wrIdx][0], answer: ans, score, corrected: String(r.corrected || ""), issues: (Array.isArray(r.issues) ? r.issues : []).slice(0, 8) };
+    const rec = { date: today, ts: Date.now(), prompt: spCur.scene, answer: ans, score, corrected: String(r.corrected || ""), issues: (Array.isArray(r.issues) ? r.issues : []).slice(0, 8) };
     writings.unshift(rec); writings = writings.slice(0, 10);
     if (db) { try { await db.collection("writing").doc("w" + rec.ts).set(rec); } catch (e) { toast("履歴の保存に失敗しました"); } }
     renderWrHistory();
   } catch (e) {
     const code = e && e.code; $("wrStatus").textContent = code === "not_granted" ? "Claudeの利用が許可されていないため添削できません。" : code === "rate_limited" ? "利用上限です。しばらくしてからもう一度。" : "添削に失敗しました。もう一度試してください。";
   } finally { btn.disabled = false; }
-});
+}
+$("wrGrade").addEventListener("click", gradeSpeaking);
+function b64urlDecode(s) { try { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return decodeURIComponent(escape(atob(s))); } catch (e) { return ""; } }
+/* #sp.<id>.<base64url transcript> from the speak page: show that prompt, fill the answer, and grade it right away. */
+function applySpeakHash() {
+  const m = /^#sp\.([A-Za-z0-9]+)\.([A-Za-z0-9_-]+)$/.exec(location.hash || ""); if (!m) return false;
+  const text = b64urlDecode(m[2]); if (!text) return false;
+  spForced = m[1]; try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  go("write"); $("wrInput").value = text; $("wrResult").hidden = true;
+  if (sampleFn) gradeSpeaking(); else toast("話した内容を入れました。Claudeアプリ内なら添削できます");
+  return true;
+}
 function renderWrHistory() {
   $("wrHistory").innerHTML = writings.length ? writings.slice(0, 5).map((w) => '<div class="item"><div class="row"><span class="prog">' + esc(w.date) + '</span><span class="grow"></span><span class="score">' + w.score + '点</span></div><div class="muted">' + esc(w.prompt) + '</div><div class="en">' + esc(w.corrected) + '</div></div>').join("") : '<div class="muted">まだありません。</div>';
 }
@@ -1060,7 +1091,7 @@ function applyPronHash() {
   try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
   return true;
 }
-window.addEventListener("hashchange", () => { if (applyPronHash()) go("home"); });
+window.addEventListener("hashchange", () => { if (applyPronHash()) go("home"); else applySpeakHash(); });
 $("prManualGo").addEventListener("click", () => {
   const v = $("prManual").value.trim(); if (v === "" || isNaN(Number(v))) return toast("0〜100 の数字を入力してください");
   recordPron(Number(v)); $("prManual").value = ""; renderPron();
@@ -1139,12 +1170,13 @@ async function loadState() {
 }
 (async () => {
   renderHome();
-  await Promise.all([loadWords(), loadYt(), loadDialogues()]);
+  await Promise.all([loadWords(), loadYt(), loadDialogues(), loadSpeakPrompts()]);
   renderHome();
   await loadState();
   applyPronHash();
   sampleFn = await use("sample");
   renderHome();
+  applySpeakHash();
   if ("speechSynthesis" in window) speechSynthesis.getVoices();
 })();
 })();
