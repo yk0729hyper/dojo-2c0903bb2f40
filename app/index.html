@@ -234,7 +234,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
   </div>
 
   <div class="card">
-    <h3>金のフレーズ 定着状況</h3>
+    <h3>単語の定着状況</h3>
     <div id="levels" style="display:flex;flex-direction:column;gap:10px"></div>
     <div class="muted">「定着」は復習間隔が3週間以上に伸びた語。「学習中」は一度でも出題した語。</div>
   </div>
@@ -243,11 +243,12 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
 <!-- ================= VOCAB ================= -->
 <section id="v-vocab" class="view" hidden>
   <div id="vocabStart" class="card">
-    <h2>単語 (金のフレーズ)</h2>
+    <h2>単語</h2>
     <div id="vocabPlan" class="muted"></div>
-    <div class="row"><span class="muted">1日の新規語数</span><select id="newPerDay" class="btn small"><option>5</option><option>10</option><option selected>15</option><option>20</option><option>30</option></select></div>
+    <div class="row"><span class="muted">1日の新規語数</span><select id="newPerDay" class="btn small"><option>5</option><option>10</option><option selected>15</option><option>20</option><option>30</option><option>50</option><option>100</option></select></div>
+    <div class="row"><span class="muted">出題範囲</span><select id="vocabSrc" class="btn small"><option value="all">金のフレーズ + ビジネス頻出</option><option value="kin">金のフレーズのみ</option><option value="biz">ビジネス頻出のみ</option></select></div>
     <button id="vocabGo" class="btn primary block">開始</button>
-    <div class="muted">カードの表で意味を思い出し、裏で答え合わせ。音声は本の収録音声です。イヤホン推奨。</div>
+    <div class="muted">カードの表で意味を思い出し、裏で例文と一緒に答え合わせ。金のフレーズは本の収録音声、ビジネス頻出語は米国ネイティブ音声(合成)です。イヤホン推奨。</div>
   </div>
   <div id="vocabCard" class="card focus" hidden>
     <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button><span id="vcLv" class="pill lv"></span><span id="vcNew" class="pill" hidden>NEW</span><span class="grow"></span><span id="vcProg" class="prog"></span></div>
@@ -278,10 +279,49 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
 <!-- ================= LISTEN ================= -->
 <section id="v-listen" class="view" hidden>
   <div id="listenStart" class="card">
-    <h2>リスニング (ディクテーション)</h2>
-    <div class="muted">本の例文をネイティブ音声で聞き、聞こえた通りに英語で打ち込みます。1回目は1.0倍、聞き取れなければ0.75倍へ。8問で約6分。</div>
-    <div class="row"><span class="muted">問題数</span><select id="listenCount" class="btn small"><option>5</option><option selected>8</option><option>12</option></select></div>
+    <h2>リスニング</h2>
+    <div class="row"><span class="muted">モード</span><select id="listenMode" class="btn small"><option value="dialog">自然な会話 (米語・1本)</option><option value="phrase">例文の書き取り (金のフレーズ)</option></select></div>
+    <div id="listenModeNote" class="muted">米国オフィスの自然な会話(短縮形・音の連結あり)を1本聞き、内容の設問3問に答えてから、1文を書き取ります。最後に全文スクリプトと「音のつながり」の解説。約5分。</div>
+    <div class="row" id="listenCountRow" hidden><span class="muted">問題数</span><select id="listenCount" class="btn small"><option>5</option><option selected>8</option><option>12</option></select></div>
     <button id="listenGo" class="btn primary block">開始</button>
+  </div>
+  <div id="dlgCard" class="card focus" hidden>
+    <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button><span class="pill">会話</span><span class="grow"></span><span id="dlgPlays" class="prog"></span></div>
+    <h2 id="dlgTitle"></h2>
+    <div class="muted" id="dlgSit"></div>
+    <div><button class="playbtn" id="dlgPlay" type="button" aria-label="再生"><svg class="i"><use href="#i-play"/></svg></button><div class="muted">タップして聞く (<span id="dlgDur"></span>)</div></div>
+    <div class="speeds" id="dlgSpeeds"><button data-rate="1" class="on">1.0x</button><button data-rate="0.8">0.8x</button><button data-rate="1.2">1.2x</button></div>
+    <div class="muted">まずスクリプトなしで2回まで。全部聞き取れなくても設問へ進んで大丈夫。</div>
+    <button id="dlgToQ" class="btn primary block">設問へ</button>
+  </div>
+  <div id="dlgQCard" class="card" hidden>
+    <div class="row"><span class="pill">設問</span><span class="grow"></span><span id="dqProg" class="prog"></span></div>
+    <div class="phrase" id="dqText"></div>
+    <div class="row"><button class="btn small ghost" id="dqReplay" type="button"><svg class="i"><use href="#i-play"/></svg>もう一度聞く</button></div>
+    <div class="choices" id="dqChoices"></div>
+    <button id="dqNext" class="btn primary block" hidden>次へ</button>
+  </div>
+  <div id="dlgDictCard" class="card focus" hidden>
+    <div class="row"><span class="pill">書き取り</span><span class="grow"></span><span id="ddPlays" class="prog"></span></div>
+    <div class="muted">会話の中の1文を、聞こえた通りに。短縮形(gonna, I'm)はそのままでも元の形でも正解です。</div>
+    <div><button class="playbtn" id="ddPlay" type="button" aria-label="再生"><svg class="i"><use href="#i-play"/></svg></button></div>
+    <div class="speeds" id="ddSpeeds"><button data-rate="1" class="on">1.0x</button><button data-rate="0.8">0.8x</button></div>
+    <textarea id="ddInput" placeholder="聞こえた英文を入力" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
+    <button id="ddCheck" class="btn primary block">答え合わせ</button>
+    <div id="ddResult" hidden style="display:flex;flex-direction:column;gap:10px;text-align:left">
+      <div class="diff" id="ddDiff"></div>
+      <div class="ja" id="ddJa"></div>
+      <div class="row"><span class="score" id="ddScore" style="font-size:22px"></span></div>
+      <button id="ddToScript" class="btn primary block">スクリプトと解説を見る</button>
+    </div>
+  </div>
+  <div id="dlgScriptCard" class="card" hidden>
+    <div class="row"><span class="pill">スクリプト</span><span class="grow"></span><span class="muted">行をタップで再生</span></div>
+    <div class="list" id="dsLines"></div>
+    <h3>音のつながり・言い回し</h3>
+    <ul class="issues" id="dsNotes"></ul>
+    <div class="row"><button class="btn small ghost" id="dsReplayAll" type="button"><svg class="i"><use href="#i-play"/></svg>通しで聞く</button></div>
+    <button id="dsDone" class="btn primary block">完了</button>
   </div>
   <div id="listenItem" class="card focus" hidden>
     <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button><span id="liProg" class="prog"></span><span class="grow"></span><span id="liPlays" class="prog"></span></div>
@@ -419,7 +459,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 let toastT; const toast = (m) => { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); };
 const use = (n) => (window.claude && typeof window.claude.use === "function") ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
 
-const LV_LABEL = { "600": "600点レベル", "730": "730点レベル", "860": "860点レベル", "990": "990点レベル", "sup": "補足章", "basic": "基本単語" };
+const LV_LABEL = { "600": "600点レベル", "730": "730点レベル", "860": "860点レベル", "990": "990点レベル", "sup": "補足章", "basic": "基本単語", "biz": "ビジネス頻出" };
+const SRS_LV = ["600", "730", "860", "990", "sup", "basic", "biz"];
 const MAIN_LV = ["600", "730", "860", "990"];
 const XP = { review: 2, newWord: 3, listenMax: 5, write: 20, expr: 10, pron: 10 };
 /* 発音ページ (GitHub Pages)。マイクはArtifact内で使えないので外部ページに置き、結果は #pronNN のハッシュで戻ってくる。 */
@@ -468,8 +509,10 @@ function unlockAudio() {
     return unlockP;
   } catch (e) { return null; }
 }
+/* f: a key of FILES (chNN / bizNN) or a relative URL (dialogue files). The stop timer is armed only once
+   playback has actually started ("playing"), so loading time never eats into the clip. */
 async function playClip(f, s, e, rate = 1) {
-  const url = FILES[f];
+  const url = FILES[f] || (/[\/.]/.test(String(f)) ? String(f) : null);
   if (!url) return false;
   clearTimeout(stopTimer); stopAt = null;
   if (unlockP) await unlockP;
@@ -480,9 +523,15 @@ async function playClip(f, s, e, rate = 1) {
   try {
     player.pause();
     player.playbackRate = rate;
-    player.currentTime = s;
-    stopAt = e;
-    stopTimer = setTimeout(() => { if (stopAt != null) { player.pause(); stopAt = null; } }, ((e - s) / rate) * 1000 + 120);
+    try { player.currentTime = s; } catch (err) {}
+    stopAt = e + 0.12;
+    const arm = () => {
+      clearTimeout(stopTimer); if (stopAt == null) return;
+      if (player.currentTime < s - 1.5) { try { player.currentTime = s; } catch (err) {} }
+      const rem = Math.max(0.05, (stopAt - player.currentTime) / (player.playbackRate || 1));
+      stopTimer = setTimeout(() => { if (stopAt != null) { player.pause(); stopAt = null; } }, rem * 1000 + 80);
+    };
+    player.addEventListener("playing", arm, { once: true });
     await player.play();
     return true;
   } catch (err) { toast("再生できませんでした。もう一度タップしてください"); return false; }
@@ -502,7 +551,8 @@ function go(v) {
   VIEWS.forEach((n) => { $("v-" + n).hidden = n !== v; });
   document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.go === v));
   window.scrollTo(0, 0);
-  if (v === "home") { renderHome(); $("listenStart").hidden = false; $("listenItem").hidden = true; $("listenDone").hidden = true; $("tsIntro").hidden = false; ["tsVocab", "tsListen", "tsResult"].forEach((id) => { $(id).hidden = true; }); }
+  if (v === "home") { renderHome(); resetListen(); $("tsIntro").hidden = false; ["tsVocab", "tsListen", "tsResult"].forEach((id) => { $(id).hidden = true; }); }
+  if (v === "listen" && !$("listenStart").hidden) syncListenMode();
   if (v === "vocab") renderVocabStart();
   if (v === "write") renderWrite();
   if (v === "expr") renderExpr();
@@ -526,8 +576,14 @@ function vocabPlan() {
   const seen = new Set(); const due = [];
   for (const lv in srs) for (const id in srs[lv]) { seen.add(id); if (BYID[id] && srs[lv][id].due <= today) due.push(id); }
   const nNew = Math.max(0, (profile.newPerDay || 15) - day().vn);
-  const fresh = WORDS.filter((w) => w.lv !== "basic" && !seen.has(w.id)).slice(0, nNew).map((w) => w.id);
-  return { due: shuffle(due).slice(0, 60), fresh, seen };
+  const src = profile.src || "all";
+  const kin = WORDS.filter((w) => w.lv !== "basic" && w.lv !== "biz" && !seen.has(w.id)).map((w) => w.id);
+  const biz = WORDS.filter((w) => w.lv === "biz" && !seen.has(w.id)).map((w) => w.id);
+  let fresh = [];
+  if (src === "kin") fresh = kin.slice(0, nNew);
+  else if (src === "biz") fresh = biz.slice(0, nNew);
+  else { let i = 0, j = 0; while (fresh.length < nNew && (i < kin.length || j < biz.length)) { if (i < kin.length) fresh.push(kin[i++]); if (fresh.length < nNew && i < kin.length) fresh.push(kin[i++]); if (fresh.length < nNew && j < biz.length) fresh.push(biz[j++]); } }
+  return { due: shuffle(due).slice(0, 200), fresh, seen };
 }
 function estimate() {
   const p = profile.placement; if (!p) return null;
@@ -558,7 +614,7 @@ function renderHome() {
   $("menuXp").textContent = "今日 " + d.xp + " XP";
   const items = [
     { k: "vocab", t: "単語", s: "復習 " + plan.due.length + " / 新規 " + plan.fresh.length + " 語", xp: "+" + (plan.due.length * XP.review + plan.fresh.length * XP.newWord) },
-    { k: "listen", t: "リスニング", s: "ディクテーション 8問", xp: "+40まで" },
+    { k: "listen", t: "リスニング", s: "自然な会話1本: 聞く→設問3問→書き取り", xp: "+25まで" },
     { k: "write", t: "英作文", s: "お題1本をClaudeが添削", xp: "+" + XP.write },
     { k: "expr", t: "表現", s: "今日の3表現を音読", xp: "+" + XP.expr },
     { k: "pron", t: "発音", s: d.pron != null ? "今日の一致率 " + d.pron + "%" : "10フレーズを声に出して判定", xp: "+" + XP.pron },
@@ -602,7 +658,7 @@ function renderHome() {
     { n: "発音", v: pa, label: pa == null ? "未計測" : Math.round(pa) + "%", pct: pa == null ? 0 : pa },
   ];
   $("skills").innerHTML = sk.map((s) => '<div class="skill"><span>' + s.n + '</span><div class="bar"><i style="width:' + Math.round(s.pct) + '%"></i></div><span class="v">' + s.label + '</span></div>').join("");
-  $("levels").innerHTML = MAIN_LV.map((lv) => {
+  $("levels").innerHTML = [...MAIN_LV, "biz"].map((lv) => {
     const all = WORDS.filter((w) => w.lv === lv); const seenN = all.filter((w) => plan.seen.has(w.id)).length; const mat = all.filter((w) => { const e = srsEntry(w.id); return e && e.iv >= 21; }).length;
     return '<div class="lvrow"><div class="row"><span>' + LV_LABEL[lv] + '</span><span class="prog">学習中 ' + seenN + '</span><span class="v">定着 ' + mat + '/' + all.length + '</span></div><div class="bar good"><i style="width:' + (all.length ? Math.round(mat / all.length * 100) : 0) + '%"></i></div></div>';
   }).join("");
@@ -614,11 +670,13 @@ function renderVocabStart() {
   $("vocabStart").hidden = false; $("vocabCard").hidden = true; $("vocabDone").hidden = true;
   const plan = vocabPlan();
   $("newPerDay").value = String(profile.newPerDay || 15);
+  $("vocabSrc").value = profile.src || "all";
   $("vocabPlan").textContent = "復習 " + plan.due.length + " 語 / 新規 " + plan.fresh.length + " 語 (約 " + Math.max(1, Math.round((plan.due.length + plan.fresh.length) * 0.3)) + " 分)";
   $("vocabGo").disabled = plan.due.length + plan.fresh.length === 0;
   if ($("vocabGo").disabled) $("vocabPlan").textContent += " — 今日の分は終わっています。";
 }
 $("newPerDay").addEventListener("change", () => { profile.newPerDay = Number($("newPerDay").value); saveProfile(); renderVocabStart(); });
+$("vocabSrc").addEventListener("change", () => { profile.src = $("vocabSrc").value; saveProfile(); renderVocabStart(); });
 $("vocabGo").addEventListener("click", () => {
   unlockAudio();
   const plan = vocabPlan(); vq = [...plan.due, ...plan.fresh]; vIdx = 0; vStats = { n: 0, ok: 0, fresh: 0 }; vAgain = {};
@@ -700,13 +758,105 @@ function pickPhrases(n, lvs) {
   return [...known, ...rest].slice(0, n);
 }
 
-/* ---------- LISTEN ---------- */
-let lq = [], lIdx = 0, lRate = 1, lPlays = 0, lStats = { n: 0, sum: 0 };
+/* ---------- LISTEN: natural dialogues (dialogues.json, edge-tts US voices) ---------- */
+let DLG = [];
+async function loadDialogues() {
+  try { const r = await fetch("dialogues.json", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); DLG = (await r.json()).dialogues || []; } catch (e) { DLG = []; }
+}
+/* Spoken reductions and contractions are accepted either way: both sides are expanded before comparing. */
+const REDUCE = [[/\bgonna\b/g, "going to"], [/\bwanna\b/g, "want to"], [/\bgotta\b/g, "got to"], [/\bkinda\b/g, "kind of"], [/\bsorta\b/g, "sort of"], [/\blemme\b/g, "let me"], [/\bgimme\b/g, "give me"], [/\bdunno\b/g, "don't know"], [/\b(cuz|'cause|cause)\b/g, "because"], [/\boutta\b/g, "out of"], [/\blotta\b/g, "lot of"], [/\bya\b/g, "you"],
+  [/\bcan't\b/g, "cannot"], [/\bwon't\b/g, "will not"], [/\bain't\b/g, "is not"], [/\bshan't\b/g, "shall not"], [/\bn't\b/g, " not"], [/\b(i|you|we|they)'ll\b/g, "$1 will"], [/\b(he|she|it|that|there|who)'ll\b/g, "$1 will"], [/\b(i|you|we|they)'ve\b/g, "$1 have"], [/\b(must|should|could|would|might)'ve\b/g, "$1 have"], [/\b(i|you|we|they|he|she|it|that|there|who)'d\b/g, "$1 would"], [/\b(you|we|they)'re\b/g, "$1 are"], [/\bi'm\b/g, "i am"], [/\b(he|she|it|that|there|what|who|where|here|how)'s\b/g, "$1 is"], [/\blet's\b/g, "let us"], [/\bok\b/g, "okay"], [/\balright\b/g, "all right"]];
+function expandForms(s) { let t = String(s || "").toLowerCase().replace(/’/g, "'"); for (const [re, rep] of REDUCE) t = t.replace(re, rep); return t; }
+function diffSpoken(ref, hyp) {
+  const r = diffWords(expandForms(ref), expandForms(hyp));
+  // re-map marks onto the original reference words (expansion can change word count, so fall back to a plain diff on mismatch)
+  const orig = String(ref || "").split(/\s+/).filter(Boolean);
+  if (r.marks.length === orig.length) return { marks: r.marks.map((m, i) => ({ w: orig[i], ok: m.ok })), score: r.score };
+  const plain = diffWords(ref, hyp); return plain.score >= r.score ? plain : { marks: plain.marks, score: r.score };
+}
+const dlgState = () => (profile.dlg ||= {});
+function pickDialogue() {
+  const st = dlgState();
+  const sorted = [...DLG].sort((a, b) => (((st[a.id] || {}).n || 0) - ((st[b.id] || {}).n || 0)) || a.id.localeCompare(b.id));
+  return sorted[0] || null;
+}
+let dcur = null, dq = 0, dRate = 1, ddRate = 1, dPlays = 0, ddPlays = 0, dStats = { q: 0, qc: 0, dict: 0 };
+function resetListen() {
+  ["dlgCard", "dlgQCard", "dlgDictCard", "dlgScriptCard", "listenItem", "listenDone"].forEach((id) => { $(id).hidden = true; });
+  $("listenStart").hidden = false; stopAt = null; clearTimeout(stopTimer); player.pause();
+  $("listenMode").value = profile.listenMode || "dialog"; syncListenMode();
+}
+function syncListenMode() { const m = $("listenMode").value; $("listenCountRow").hidden = m !== "phrase"; $("listenModeNote").textContent = m === "phrase" ? "本の例文をネイティブ音声で聞き、聞こえた通りに英語で打ち込みます。1回目は1.0倍、聞き取れなければ0.75倍へ。8問で約6分。" : "米国オフィスの自然な会話(短縮形・音の連結あり)を1本聞き、内容の設問3問に答えてから、1文を書き取ります。最後に全文スクリプトと「音のつながり」の解説。約5分。"; }
+$("listenMode").addEventListener("change", () => { profile.listenMode = $("listenMode").value; saveProfile(); syncListenMode(); });
 $("listenGo").addEventListener("click", () => {
   unlockAudio();
+  if ($("listenMode").value === "phrase") return startPhraseMode();
+  dcur = pickDialogue(); if (!dcur) return toast("会話データを読み込めませんでした");
+  dq = 0; dStats = { q: 0, qc: 0, dict: 0 }; dPlays = 0; dRate = 1; ddRate = 1; ddPlays = 0;
+  $("listenStart").hidden = true; $("dlgCard").hidden = false;
+  $("dlgTitle").textContent = dcur.title; $("dlgSit").textContent = dcur.situation; $("dlgDur").textContent = Math.round(dcur.dur) + "秒"; $("dlgPlays").textContent = "";
+  document.querySelectorAll("#dlgSpeeds button").forEach((x) => x.classList.toggle("on", x.dataset.rate === "1"));
+  document.querySelectorAll("#ddSpeeds button").forEach((x) => x.classList.toggle("on", x.dataset.rate === "1"));
+  setTimeout(playDialogue, 300);
+});
+function playDialogue() { dPlays++; $("dlgPlays").textContent = "再生 " + dPlays + " 回"; playClip(dcur.file, 0, dcur.dur, dRate); }
+$("dlgPlay").addEventListener("click", playDialogue);
+document.querySelectorAll("#dlgSpeeds button").forEach((b) => b.addEventListener("click", () => { dRate = Number(b.dataset.rate); document.querySelectorAll("#dlgSpeeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
+document.querySelectorAll("#ddSpeeds button").forEach((b) => b.addEventListener("click", () => { ddRate = Number(b.dataset.rate); document.querySelectorAll("#ddSpeeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
+$("dlgToQ").addEventListener("click", () => { player.pause(); stopAt = null; $("dlgCard").hidden = true; $("dlgQCard").hidden = false; showDlgQ(); });
+function showDlgQ() {
+  if (dq >= dcur.qs.length) return showDlgDict();
+  const q = dcur.qs[dq]; $("dqProg").textContent = (dq + 1) + " / " + dcur.qs.length; $("dqText").textContent = q.q;
+  $("dqChoices").innerHTML = q.c.map((c, i) => '<button type="button" data-i="' + i + '">' + esc(c) + "</button>").join("");
+  $("dqNext").hidden = true;
+}
+$("dqReplay").addEventListener("click", () => { dPlays++; playClip(dcur.file, 0, dcur.dur, dRate); });
+$("dqChoices").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-i]"); if (!b || b.disabled) return;
+  const q = dcur.qs[dq]; const i = Number(b.dataset.i); const ok = i === q.a; dStats.q++; if (ok) dStats.qc++;
+  [...$("dqChoices").children].forEach((x) => { x.disabled = true; if (Number(x.dataset.i) === q.a) x.classList.add("ok"); else if (x === b) x.classList.add("ng"); });
+  $("dqNext").hidden = false;
+});
+$("dqNext").addEventListener("click", () => { dq++; showDlgQ(); });
+function dictLine() { return dcur.lines[Math.min(dcur.dict || 0, dcur.lines.length - 1)]; }
+function showDlgDict() {
+  $("dlgQCard").hidden = true; $("dlgDictCard").hidden = false; ddPlays = 0; $("ddPlays").textContent = "";
+  $("ddInput").value = ""; $("ddInput").disabled = false; $("ddResult").hidden = true; $("ddCheck").hidden = false;
+  const ln = dictLine(); setTimeout(() => playClip(dcur.file, ln.st, ln.en, ddRate), 300);
+}
+$("ddPlay").addEventListener("click", () => { const ln = dictLine(); ddPlays++; $("ddPlays").textContent = "再生 " + ddPlays + " 回"; playClip(dcur.file, ln.st, ln.en, ddRate); });
+$("ddCheck").addEventListener("click", () => {
+  const ln = dictLine(); const r = diffSpoken(ln.t, $("ddInput").value);
+  const penalty = Math.max(0, ddPlays - 3) * 0.1; const score = Math.max(0, r.score - penalty); dStats.dict = score;
+  $("ddDiff").innerHTML = renderDiff(r.marks); $("ddJa").textContent = ln.ja || "";
+  $("ddScore").textContent = Math.round(score * 100) + "%" + (penalty ? " (再生回数で減点)" : "");
+  $("ddResult").hidden = false; $("ddCheck").hidden = true; $("ddInput").disabled = true;
+});
+$("ddToScript").addEventListener("click", () => {
+  $("dlgDictCard").hidden = true; $("dlgScriptCard").hidden = false;
+  const di = Math.min(dcur.dict || 0, dcur.lines.length - 1);
+  $("dsLines").innerHTML = dcur.lines.map((ln, i) => '<div class="item" data-ln="' + i + '"' + (i === di ? ' style="outline:2px solid var(--gold)"' : "") + '><div class="row" style="flex-wrap:nowrap;align-items:flex-start"><span class="pill lv">' + esc(ln.s) + '</span><span class="en" style="font-size:17px;line-height:1.45">' + esc(ln.t) + '</span></div><div class="muted">' + esc(ln.ja) + "</div></div>").join("");
+  $("dsNotes").innerHTML = (dcur.notes || []).map((n) => "<li>" + esc(n) + "</li>").join("") || "<li>特になし</li>";
+  window.scrollTo(0, 0);
+});
+$("dsLines").addEventListener("click", (ev) => { const it = ev.target.closest("[data-ln]"); if (!it) return; const ln = dcur.lines[Number(it.dataset.ln)]; playClip(dcur.file, ln.st, ln.en, 1); });
+$("dsReplayAll").addEventListener("click", () => playClip(dcur.file, 0, dcur.dur, 1));
+$("dsDone").addEventListener("click", () => {
+  player.pause(); stopAt = null;
+  const qPct = dStats.q ? dStats.qc / dStats.q : 0;
+  const xp = Math.round(10 * qPct) + Math.round(10 * dStats.dict) + 5;
+  const d = day(); d.li = (d.li || 0) + 1; d.ls = (d.ls || 0) + dStats.dict; d.lq = (d.lq || 0) + dStats.q; d.lqc = (d.lqc || 0) + dStats.qc; d.menu.listen = true; addXp(xp); saveDay();
+  const st = dlgState(); const prev = st[dcur.id] || { n: 0, best: 0 }; st[dcur.id] = { n: prev.n + 1, best: Math.max(prev.best || 0, Math.round(dStats.dict * 100)), last: today }; saveProfile();
+  $("dlgScriptCard").hidden = true; $("listenDone").hidden = false;
+  $("listenSummary").innerHTML = '<div class="row"><span class="big num">' + dStats.qc + '<small>/ ' + dStats.q + ' 問正解</small></span><span class="grow"></span><span class="muted">書き取り ' + Math.round(dStats.dict * 100) + '%</span></div><div class="bar good"><i style="width:' + Math.round(qPct * 100) + '%"></i></div><div class="note">+' + xp + ' XP。会話は全' + DLG.length + '本を順に回し、同じ会話は回数の少ないものから出ます。</div>';
+});
+
+/* ---------- LISTEN: phrase dictation (book sentences) ---------- */
+let lq = [], lIdx = 0, lRate = 1, lPlays = 0, lStats = { n: 0, sum: 0 };
+function startPhraseMode() {
   lq = pickPhrases(Number($("listenCount").value), null); if (!lq.length) return toast("音声データがまだありません");
   lIdx = 0; lStats = { n: 0, sum: 0 }; $("listenStart").hidden = true; $("listenItem").hidden = false; $("listenDone").hidden = true; showListen();
-});
+}
 function showListen() {
   if (lIdx >= lq.length) return finishListen();
   lPlays = 0; $("liProg").textContent = (lIdx + 1) + " / " + lq.length; $("liPlays").textContent = ""; $("liBar").innerHTML = stepsHtml(lIdx, lq.length);
@@ -714,7 +864,7 @@ function showListen() {
   setTimeout(() => playPhrase(lq[lIdx], lRate), 200);
 }
 $("liPlay").addEventListener("click", () => { lPlays++; $("liPlays").textContent = "再生 " + lPlays + " 回"; playPhrase(lq[lIdx], lRate); });
-document.querySelectorAll(".speeds button").forEach((b) => b.addEventListener("click", () => { lRate = Number(b.dataset.rate); document.querySelectorAll(".speeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
+document.querySelectorAll("#listenItem .speeds button").forEach((b) => b.addEventListener("click", () => { lRate = Number(b.dataset.rate); document.querySelectorAll("#listenItem .speeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
 $("liCheck").addEventListener("click", () => {
   const w = lq[lIdx]; const r = diffWords(w.ph, $("liInput").value);
   const penalty = Math.max(0, lPlays - 2) * 0.1; const score = Math.max(0, r.score - penalty);
@@ -976,8 +1126,8 @@ async function loadState() {
   if (!db) { $("dbBanner").hidden = false; return; }
   try {
     const p = await db.doc("profile/me").get(); if (p.exists) profile = Object.assign(profile, p.data());
-    const lvDocs = await Promise.all(["600", "730", "860", "990", "sup", "basic"].map((lv) => db.doc("srs/" + lv).get()));
-    lvDocs.forEach((s, i) => { if (s.exists) srs[["600", "730", "860", "990", "sup", "basic"][i]] = clone(s.data()); });
+    const lvDocs = await Promise.all(SRS_LV.map((lv) => db.doc("srs/" + lv).get()));
+    lvDocs.forEach((s, i) => { if (s.exists) srs[SRS_LV[i]] = clone(s.data()); });
     const ds = await db.collection("days").where("date", ">=", addDays(today, -60)).get();
     ds.docs.forEach((d) => { days[d.id] = clone(d.data()); });
     const ws = await db.collection("writing").orderBy("ts", "desc").limit(10).get();
@@ -989,7 +1139,7 @@ async function loadState() {
 }
 (async () => {
   renderHome();
-  await Promise.all([loadWords(), loadYt()]);
+  await Promise.all([loadWords(), loadYt(), loadDialogues()]);
   renderHome();
   await loadState();
   applyPronHash();

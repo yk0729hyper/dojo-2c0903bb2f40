@@ -165,7 +165,9 @@ h3 { font-size: 13px; margin: 0; color: var(--ink-2); font-weight: 700; letter-s
   <section id="vStart" class="card focus">
     <div class="iconcap"><svg class="i"><use href="#i-mic"/></svg></div>
     <h2>今日の発音 (10フレーズ)</h2>
-    <div class="muted">お手本を聞いて、同じように声に出す。iPhoneが聞き取った英文とお手本を比べ、単語の一致率を出します。</div>
+    <div class="muted">お手本を聞いて、同じ速さ・同じ抑揚で声に出す。iPhoneが聞き取った英文とお手本を比べ、単語の一致率を出します。</div>
+    <div class="row" style="justify-content:center"><span class="muted">お手本</span><select id="stSrc" class="btn small"><option value="conv">自然な会話 (米語・短縮や連結あり)</option><option value="biz">ビジネス語の例文 (米語)</option><option value="kin">金のフレーズ (本の音声)</option></select></div>
+    <div class="muted" id="stSrcNote">米国オフィスの会話から1行ずつ。gonna や got a minute のような、実際の話し言葉の速さと音のつながりを真似ます。</div>
     <div class="row"><span class="pill lv" id="stLv"></span><span class="grow"></span><span class="prog" id="stPos"></span></div>
     <div class="bar"><i id="stBar" style="width:0%"></i></div>
     <button id="stGo" class="btn primary block">開始</button>
@@ -241,13 +243,29 @@ try { const j = JSON.parse(localStorage.getItem(LS) || "null"); if (j && typeof 
 const saveSt = () => { try { localStorage.setItem(LS, JSON.stringify(st)); } catch (e) {} };
 
 /* ---------- data ---------- */
-let POOL = [], FILES = {};
+/* Three model-pronunciation sources: natural US dialogues (../app/dialogues.json, one line = one item),
+   business-word example sentences (words.json lv "biz"), and the book's recorded phrases (lv 600-990). */
+let POOLS = { conv: [], biz: [], kin: [] }, FILES = {};
+const SRC_LABEL = { conv: "自然な会話", biz: "ビジネス語の例文", kin: "金のフレーズ" };
+const SRC_NOTE = { conv: "米国オフィスの会話から1行ずつ。gonna や got a minute のような、実際の話し言葉の速さと音のつながりを真似ます。", biz: "ビジネス頻出語の例文を米国ネイティブの声で。文全体のリズムを真似ます。", kin: "本の収録音声。はっきり読まれた教科書的な発音なので、一語ずつ確かめたいときに。" };
+function curSrc() { return POOLS[st.src] && POOLS[st.src].length ? st.src : (POOLS.conv.length ? "conv" : POOLS.kin.length ? "kin" : "biz"); }
+function POOL() { return POOLS[curSrc()]; }
+function getPos() { return (st.posBy && st.posBy[curSrc()]) || (curSrc() === "kin" ? st.pos : 0) || 0; }
+function setPos(v) { st.posBy = st.posBy || {}; st.posBy[curSrc()] = v; if (curSrc() === "kin") st.pos = v; }
 async function loadWords() {
   const r = await fetch(DATA_URL); if (!r.ok) throw new Error(r.status);
   const j = await r.json();
   FILES = j.files || {};
-  const words = (j.words || []).filter((w) => MAIN_LV.includes(w.lv) && w.ph && w.f && w.ps != null && w.pe != null && w.pe > w.ps);
-  POOL = MAIN_LV.flatMap((lv) => words.filter((w) => w.lv === lv));
+  const ok = (w) => w.ph && w.f && w.ps != null && w.pe != null && w.pe > w.ps;
+  const words = (j.words || []).filter(ok);
+  POOLS.kin = MAIN_LV.flatMap((lv) => words.filter((w) => w.lv === lv));
+  POOLS.biz = words.filter((w) => w.lv === "biz").map((w) => Object.assign({}, w, { lvLabel: "ビジネス頻出" }));
+  try {
+    const r2 = await fetch(AUDIO_BASE + "dialogues.json"); if (r2.ok) {
+      const dl = (await r2.json()).dialogues || [];
+      POOLS.conv = dl.flatMap((d) => d.lines.map((ln, i) => ({ id: d.id + "-" + i, lv: "conv", lvLabel: d.title, w: ln.t.split(" ").slice(0, 2).join(" "), ph: ln.t, ja: ln.ja, url: AUDIO_BASE + d.file, f: d.file, ps: ln.st, pe: ln.en })));
+    }
+  } catch (e) { POOLS.conv = []; }
 }
 
 /* ---------- audio ---------- */
@@ -276,12 +294,12 @@ function unlockAudio() {
 }
 const TAIL = 0.3; /* the phrase boundaries sit at the silence threshold; the final consonant needs this much more */
 async function playClip(w, rate = 1) {
-  const url = FILES[w.f] ? AUDIO_BASE + FILES[w.f] : null;
+  const url = w.url || (FILES[w.f] ? AUDIO_BASE + FILES[w.f] : null);
   if (!url) return speak(w.ph);
   const seq = ++playSeq; stopWatch(); stopAt = null;
   if (unlockP) await unlockP;
-  if (curFile !== w.f || !player.getAttribute("src")) {
-    player.src = url; curFile = w.f; player.load();
+  if (curFile !== url || !player.getAttribute("src")) {
+    player.src = url; curFile = url; player.load();
     await once(["loadedmetadata", "error"], 6000);
     if (seq !== playSeq) return;
   }
@@ -310,7 +328,8 @@ function speak(text) {
 const NUM = { zero: "0", one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12", fifteen: "15", twenty: "20", thirty: "30", forty: "40", fifty: "50", hundred: "100" };
 /* Both the model sentence and the recognized text go through the same normalization, so mapping an
    ambiguous surface form (its / lets) is harmless; it only matters that "it's" and "its" land on the same tokens. */
-const CONTR = [[/\bcan't\b/g, "cannot"], [/\bwon't\b/g, "will not"], [/\bn't\b/g, " not"], [/\b(\w+)'ll\b/g, "$1 will"], [/\b(\w+)'re\b/g, "$1 are"], [/\b(\w+)'ve\b/g, "$1 have"], [/\b(\w+)'d\b/g, "$1 would"], [/\bi'm\b/g, "i am"], [/\blet's\b/g, "let us"], [/\b(it|that|there|he|she|what|who|where|how|here)'s\b/g, "$1 is"]];
+const CONTR = [[/\bgonna\b/g, "going to"], [/\bwanna\b/g, "want to"], [/\bgotta\b/g, "got to"], [/\bkinda\b/g, "kind of"], [/\bsorta\b/g, "sort of"], [/\blemme\b/g, "let me"], [/\bgimme\b/g, "give me"], [/\bdunno\b/g, "don't know"], [/\b(cuz|'cause)\b/g, "because"], [/\boutta\b/g, "out of"], [/\blotta\b/g, "lot of"], [/\bya\b/g, "you"], [/\balright\b/g, "all right"],
+  [/\bcan't\b/g, "cannot"], [/\bwon't\b/g, "will not"], [/\bn't\b/g, " not"], [/\b(\w+)'ll\b/g, "$1 will"], [/\b(\w+)'re\b/g, "$1 are"], [/\b(\w+)'ve\b/g, "$1 have"], [/\b(\w+)'d\b/g, "$1 would"], [/\bi'm\b/g, "i am"], [/\blet's\b/g, "let us"], [/\b(it|that|there|he|she|what|who|where|how|here)'s\b/g, "$1 is"]];
 const BARE = { lets: "let us", cant: "cannot", cannot: "cannot", dont: "do not", wont: "will not", didnt: "did not", doesnt: "does not", isnt: "is not", arent: "are not", wasnt: "was not", werent: "were not", hasnt: "has not", havent: "have not", hadnt: "had not", couldnt: "could not", wouldnt: "would not", shouldnt: "should not", im: "i am", ive: "i have", youre: "you are", theyre: "they are", youve: "you have", weve: "we have", theyve: "they have", its: "it is", thats: "that is", theres: "there is", whats: "what is", heres: "here is", whos: "who is", wheres: "where is", hows: "how is", okay: "ok" };
 function tokens(s) {
   let t = String(s || "").toLowerCase().replace(/[’‘]/g, "'");
@@ -406,12 +425,15 @@ let q = [], idx = 0, tries = 0, best = null, results = [];
 function show(id) { ["vStart", "vItem", "vDone"].forEach((v) => { $(v).hidden = v !== id; }); $("vHist").hidden = id !== "vStart" || !st.hist.length; window.scrollTo(0, 0); }
 function renderStart() {
   $("hdDone").textContent = st.done;
-  if (!POOL.length) return;
-  const pos = Math.min(st.pos, POOL.length);
-  const w = POOL[pos] || POOL[POOL.length - 1];
-  $("stLv").textContent = LV_LABEL[w.lv] || w.lv;
-  $("stPos").textContent = pos >= POOL.length ? "全" + POOL.length + "フレーズ 一周済み" : (pos + 1) + " 〜 " + Math.min(POOL.length, pos + PER_SESSION) + " / " + POOL.length;
-  $("stBar").style.width = Math.round(pos / POOL.length * 100) + "%";
+  $("stSrc").value = curSrc(); $("stSrcNote").textContent = SRC_NOTE[curSrc()];
+  [...$("stSrc").options].forEach((o) => { o.disabled = !POOLS[o.value].length; });
+  const P = POOL();
+  if (!P.length) return;
+  const pos = Math.min(getPos(), P.length);
+  const w = P[pos] || P[P.length - 1];
+  $("stLv").textContent = w.lvLabel || LV_LABEL[w.lv] || w.lv;
+  $("stPos").textContent = pos >= P.length ? "全" + P.length + "フレーズ 一周済み" : (pos + 1) + " 〜 " + Math.min(P.length, pos + PER_SESSION) + " / " + P.length;
+  $("stBar").style.width = Math.round(pos / P.length * 100) + "%";
   const h = st.hist.slice(-14);
   if (h.length) {
     $("histBest").textContent = "最高 " + Math.max(...st.hist.map((x) => x.avg)) + "%";
@@ -420,16 +442,17 @@ function renderStart() {
   }
 }
 function startSession() {
-  if (!POOL.length) return toast("データがありません");
-  if (st.pos >= POOL.length) { st.pos = 0; }
-  q = POOL.slice(st.pos, st.pos + PER_SESSION);
+  const P = POOL();
+  if (!P.length) return toast("データがありません");
+  if (getPos() >= P.length) setPos(0);
+  q = P.slice(getPos(), getPos() + PER_SESSION);
   idx = 0; results = [];
   show("vItem"); showItem();
 }
 function showItem() {
   stopAudio(); stopRec();
   const w = q[idx]; tries = 0; best = null;
-  $("itLv").textContent = LV_LABEL[w.lv] || w.lv; $("itProg").textContent = (idx + 1) + " / " + q.length;
+  $("itLv").textContent = w.lvLabel || LV_LABEL[w.lv] || w.lv; $("itProg").textContent = (idx + 1) + " / " + q.length;
   $("itSteps").innerHTML = Array.from({ length: q.length }, (_, k) => '<i class="' + (k < idx ? "on" : k === idx ? "cur" : "") + '"></i>').join("");
   $("itPhrase").innerHTML = esc(w.ph); $("itJa").textContent = w.ja || "";
   $("itResult").hidden = true; $("itNext").disabled = true; $("itNext").textContent = idx + 1 >= q.length ? "結果を見る" : "次へ";
@@ -490,8 +513,8 @@ function finishSession() {
   stopAudio(); stopRec(); closeMic();
   const avg = Math.round(results.reduce((a, r) => a + r.score, 0) / Math.max(1, results.length) * 100);
   const first = q[0], last = q[q.length - 1];
-  st.pos = Math.min(POOL.length, st.pos + q.length); st.done += q.length;
-  st.hist.push({ date: todayStr(), avg, range: (LV_LABEL[first.lv] || "") + " " + first.w + "〜" + last.w }); if (st.hist.length > 60) st.hist = st.hist.slice(-60);
+  setPos(Math.min(POOL().length, getPos() + q.length)); st.done += q.length;
+  st.hist.push({ date: todayStr(), avg, range: (first.lvLabel ? SRC_LABEL[curSrc()] + " " + first.lvLabel : (LV_LABEL[first.lv] || "") + " " + first.w + "〜" + last.w) }); if (st.hist.length > 60) st.hist = st.hist.slice(-60);
   saveSt(); $("hdDone").textContent = st.done;
   $("dnAvg").textContent = avg; $("dnBar").style.width = avg + "%";
   $("dnNote").textContent = avg >= 90 ? "ほぼ完璧。この調子で730点レベルの長い文も崩れないかを確かめていきましょう。" : avg >= 70 ? "通じるレベル。赤くなった語を翌日もう一度言えば定着します。" : "まだ聞き取ってもらえない語が多めです。お手本の直後に、同じ速さ・同じ抑揚で真似る(シャドーイング)のが近道です。";
@@ -513,6 +536,7 @@ function beginFromTap() {
 function gotoDojo() { stopAudio(); stopRec(); closeMic(); location.href = DOJO; }
 $("hdDojo").addEventListener("click", gotoDojo);
 $("itQuit").addEventListener("click", gotoDojo);
+$("stSrc").addEventListener("change", () => { st.src = $("stSrc").value; saveSt(); renderStart(); });
 $("stGo").addEventListener("click", beginFromTap);
 $("dnAgain").addEventListener("click", beginFromTap);
 document.addEventListener("visibilitychange", () => { if (document.hidden) { stopMeter(); } });
