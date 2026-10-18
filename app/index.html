@@ -397,7 +397,9 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
 <section id="v-test" class="view" hidden>
   <div id="tsIntro" class="card">
     <h2>レベル判定テスト</h2>
-    <div class="muted">語彙40問(4択・各レベル10問)と、ディクテーション6問。約10分。結果から推定TOEICスコアを出します。あくまで推定なので、どこかで本番を1回受けることをおすすめします。</div>
+    <div class="muted">語彙40問(4択・各レベル10問)と、ディクテーション6問。約10分。結果から推定TOEICスコアを出します。問題は毎回ランダムに選ばれ、結果は履歴として残ってホームに推移が出ます。あくまで推定なので、どこかで本番を1回受けることをおすすめします。</div>
+    <div class="row"><span class="muted">定期判定の間隔</span><select id="tsEvery" class="btn small"><option value="7">1週間</option><option value="14" selected>2週間</option><option value="30">1か月</option></select></div>
+    <div id="tsHist" class="muted"></div>
     <button id="tsGo" class="btn primary block">はじめる</button>
     <button class="btn block" data-go="home">あとで</button>
   </div>
@@ -465,7 +467,7 @@ const use = (n) => (window.claude && typeof window.claude.use === "function") ? 
 const LV_LABEL = { "600": "600点レベル", "730": "730点レベル", "860": "860点レベル", "990": "990点レベル", "sup": "補足章", "basic": "基本単語", "biz": "ビジネス頻出" };
 const SRS_LV = ["600", "730", "860", "990", "sup", "basic", "biz"];
 const MAIN_LV = ["600", "730", "860", "990"];
-const XP = { review: 2, newWord: 3, listenMax: 5, write: 20, expr: 10, pron: 10 };
+const XP = { review: 2, newWord: 3, listenMax: 5, write: 20, expr: 10, pron: 10, test: 30 };
 /* 発音ページ (GitHub Pages)。マイクはArtifact内で使えないので外部ページに置き、結果は #pronNN のハッシュで戻ってくる。 */
 const PRON_URL = "https://yk0729hyper.github.io/dojo-2c0903bb2f40/pron/";
 
@@ -557,6 +559,7 @@ function go(v) {
   if (v === "home") { renderHome(); resetListen(); $("tsIntro").hidden = false; ["tsVocab", "tsListen", "tsResult"].forEach((id) => { $(id).hidden = true; }); }
   if (v === "listen" && !$("listenStart").hidden) syncListenMode();
   if (v === "vocab") renderVocabStart();
+  if (v === "test") { $("tsEvery").value = String(profile.testEvery || 14); const th = testHistory(); $("tsHist").textContent = th.length ? "これまで " + th.length + " 回。前回 " + th[th.length - 1].date.slice(5).replace("-", "/") + " は推定 " + estimate(th[th.length - 1]) + " 点。" : "初回です。"; }
   if (v === "write") renderWrite();
   if (v === "expr") renderExpr();
   if (v === "pron") renderPron();
@@ -588,11 +591,36 @@ function vocabPlan() {
   else { let i = 0, j = 0; while (fresh.length < nNew && (i < kin.length || j < biz.length)) { if (i < kin.length) fresh.push(kin[i++]); if (fresh.length < nNew && i < kin.length) fresh.push(kin[i++]); if (fresh.length < nNew && j < biz.length) fresh.push(biz[j++]); } }
   return { due: shuffle(due).slice(0, 200), fresh, seen };
 }
-function estimate() {
-  const p = profile.placement; if (!p) return null;
+function estimate(p = profile.placement) {
+  if (!p) return null;
   const a = p.a || {}; const est = 450 + 120 * (a["600"] || 0) + 110 * (a["730"] || 0) + 100 * (a["860"] || 0) + 80 * (a["990"] || 0) + 90 * (p.l || 0);
   return Math.round(est / 5) * 5;
 }
+/* Placement history: profile.tests (oldest first). The first test ever recorded only in profile.placement is migrated in. */
+function testHistory() {
+  const t = Array.isArray(profile.tests) ? profile.tests.slice() : [];
+  if (!t.length && profile.placement) t.push(profile.placement);
+  return t.sort((x, y) => x.date.localeCompare(y.date));
+}
+function testDue() {
+  const t = testHistory(); if (!t.length) return { due: true, days: 0, next: today, since: null };
+  const every = profile.testEvery || 14; const last = t[t.length - 1].date; const next = addDays(last, every);
+  const since = Math.round((new Date(today + "T12:00:00") - new Date(last + "T12:00:00")) / 86400000);
+  return { due: today >= next, days: Math.max(0, Math.round((new Date(next + "T12:00:00") - new Date(today + "T12:00:00")) / 86400000)), next, since, last };
+}
+function trendSvg(tests) {
+  const pts = tests.slice(-12).map((p) => ({ d: p.date, v: estimate(p) }));
+  if (pts.length < 2) return "";
+  const W = 340, H = 110, L = 34, R = 14, T = 12, B = 22, lo = 450, hi = 950;
+  const x = (i) => L + (W - L - R) * (pts.length === 1 ? 0.5 : i / (pts.length - 1)); const y = (v) => T + (H - T - B) * (1 - (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo));
+  let s = "";
+  for (const g of [600, 730, 860, 900]) s += '<line x1="' + L + '" y1="' + y(g).toFixed(1) + '" x2="' + (W - R) + '" y2="' + y(g).toFixed(1) + '" stroke="var(--line)" stroke-width="1"' + (g === 900 ? ' stroke-dasharray="3 3"' : "") + '/><text x="' + (L - 4) + '" y="' + (y(g) + 3.5).toFixed(1) + '" text-anchor="end">' + g + "</text>";
+  const path = pts.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p.v).toFixed(1)).join(" ");
+  s += '<path d="' + path + '" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  pts.forEach((p, i) => { const last = i === pts.length - 1; s += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p.v).toFixed(1) + '" r="' + (last ? 5 : 3.5) + '" fill="' + (last ? "var(--gold)" : "var(--surface)") + '" stroke="var(--gold)" stroke-width="2"/>'; if (last || i === 0 || pts.length <= 6) s += '<text x="' + x(i).toFixed(1) + '" y="' + (y(p.v) - 9).toFixed(1) + '" text-anchor="middle"' + (last ? ' class="today"' : "") + ">" + p.v + "</text>"; s += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + p.d.slice(5).replace("-", "/") + "</text>"; });
+  return '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="推定スコアの推移">' + s + "</svg>";
+}
+const deltaTag = (d, unit) => d == null ? "" : '<span class="pill" style="background:' + (d > 0 ? "var(--good-soft)" : d < 0 ? "var(--bad-soft)" : "var(--bg)") + ";color:" + (d > 0 ? "var(--good)" : d < 0 ? "var(--bad)" : "var(--ink-2)") + '">' + (d > 0 ? "▲ +" : d < 0 ? "▼ " : "± ") + d + (unit || "") + "</span>";
 function recentAvg(key, cnt, n = 7) {
   const list = Object.values(days).sort((x, y) => y.date.localeCompare(x.date)).filter((d) => d[cnt] > 0).slice(0, n);
   const items = list.reduce((a, d) => a + d[cnt], 0); const sum = list.reduce((a, d) => a + d[key], 0);
@@ -605,12 +633,20 @@ function renderHome() {
   const est = estimate();
   const lb = $("levelBox");
   if (est == null) {
-    lb.innerHTML = '<div class="muted">まだ判定していません。最初に10分のテストで現在地を出すと、900点までの距離が見えます。</div><button class="btn primary block" data-go="test" style="margin-top:8px">レベル判定テストを受ける</button>';
+    lb.innerHTML = '<div class="muted">まだ判定していません。最初に10分のテストで現在地を出すと、900点までの距離が見えます。以後は2週間ごとに同じテストを受けて、推移を追います。</div><button class="btn primary block" data-go="test" style="margin-top:8px">レベル判定テストを受ける</button>';
   } else {
+    const tests = testHistory(); const prev = tests.length >= 2 ? tests[tests.length - 2] : null; const prevEst = prev ? estimate(prev) : null;
+    const due = testDue(); const cur = tests[tests.length - 1];
     const pct = Math.max(0, Math.min(100, Math.round((est - 400) / 5)));
-    lb.innerHTML = '<div class="row"><span class="big num">' + est + '<small>推定 ±40</small></span><span class="grow"></span><span class="prog">判定日 ' + esc(profile.placement.date) + '</span></div>'
+    const lvRows = MAIN_LV.map((lv) => { const a = Math.round(((cur.a || {})[lv] || 0) * 100); const pa = prev ? Math.round(((prev.a || {})[lv] || 0) * 100) : null; return '<div class="skill"><span>' + LV_LABEL[lv] + '</span><div class="bar"><i style="width:' + a + '%"></i></div><span class="v">' + a + '% ' + deltaTag(pa == null ? null : a - pa) + "</span></div>"; }).join("")
+      + (() => { const l = Math.round((cur.l || 0) * 100); const pl = prev ? Math.round((prev.l || 0) * 100) : null; return '<div class="skill"><span>聞き取り</span><div class="bar"><i style="width:' + l + '%"></i></div><span class="v">' + l + '% ' + deltaTag(pl == null ? null : l - pl) + "</span></div>"; })();
+    lb.innerHTML = '<div class="row"><span class="big num">' + est + '<small>推定 ±40</small></span>' + deltaTag(prevEst == null ? null : est - prevEst) + '<span class="grow"></span><span class="prog">' + tests.length + '回目 ' + esc(cur.date.slice(5).replace("-", "/")) + '</span></div>'
       + '<div class="bar"><i style="width:' + pct + '%"></i></div>'
-      + '<div class="row"><span class="muted">900点まで あと <b class="num">' + Math.max(0, 900 - est) + '</b></span><span class="grow"></span><button class="btn small" data-go="test">再判定</button></div>';
+      + '<div class="row"><span class="muted">900点まで あと <b class="num">' + Math.max(0, 900 - est) + '</b></span><span class="grow"></span>' + (prevEst != null ? '<span class="prog">前回 ' + prevEst + "</span>" : "") + "</div>"
+      + trendSvg(tests)
+      + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">' + lvRows + "</div>"
+      + (due.due ? '<div class="note">前回から ' + due.since + ' 日。定期判定の時期です(約10分)。</div><button class="btn primary block" data-go="test">定期判定を受ける</button>'
+                 : '<div class="row"><span class="muted">次回の定期判定 ' + esc(due.next.slice(5).replace("-", "/")) + ' (あと ' + due.days + ' 日)</span><span class="grow"></span><button class="btn small" data-go="test">今すぐ判定</button></div>');
   }
   const d = day(); const plan = vocabPlan();
   $("menuDate").textContent = today.slice(5).replace("-", "/");
@@ -622,6 +658,8 @@ function renderHome() {
     { k: "expr", t: "表現", s: "今日の3表現を音読", xp: "+" + XP.expr },
     { k: "pron", t: "発音", s: d.pron != null ? "今日の一致率 " + d.pron + "%" : "10フレーズを声に出して判定", xp: "+" + XP.pron },
   ];
+  const tdue = testDue();
+  if (tdue.due && !d.menu.test && testHistory().length) items.unshift({ k: "test", t: "定期レベル判定", s: "前回から " + tdue.since + " 日。語彙40問+聞き取り6問 (約10分)", xp: "+" + XP.test });
   const nextK = (items.find((it) => !d.menu[it.k]) || {}).k;
   $("menuList").innerHTML = items.map((it) => '<button data-go="' + it.k + '"' + (it.k === nextK ? ' class="next"' : "") + '><span class="chk' + (d.menu[it.k] ? " done" : "") + '">' + (d.menu[it.k] ? "✓" : "") + '</span><span><div class="t">' + it.t + '</div><div class="s">' + it.s + '</div></span>' + (it.k === nextK ? '<span class="go">はじめる ' + it.xp + '</span>' : '<span class="xp">' + it.xp + ' XP</span>') + '</button>').join("");
 
@@ -1099,6 +1137,7 @@ $("prManualGo").addEventListener("click", () => {
 
 /* ---------- PLACEMENT TEST ---------- */
 let tq = [], tIdx = 0, tRes = {}, tl = [], tlIdx = 0, tlPlays = 0, tlSum = 0;
+$("tsEvery").addEventListener("change", () => { profile.testEvery = Number($("tsEvery").value) || 14; saveProfile(); });
 $("tsGo").addEventListener("click", () => {
   unlockAudio();
   tq = []; tRes = {};
@@ -1136,12 +1175,19 @@ $("tsCheck").addEventListener("click", () => { tlSum += diffWords(tl[tlIdx].ph, 
 function finishTs(l) {
   $("tsListen").hidden = true; $("tsResult").hidden = false;
   const a = {}; for (const lv of MAIN_LV) a[lv] = tRes[lv].n ? tRes[lv].ok / tRes[lv].n : 0;
-  profile.placement = { date: today, a, l: Math.round(l * 100) / 100 }; saveProfile();
+  const prevTests = testHistory(); const prev = prevTests.length ? prevTests[prevTests.length - 1] : null; const prevEst = prev ? estimate(prev) : null;
+  const rec = { date: today, a, l: Math.round(l * 100) / 100 };
+  profile.placement = rec; profile.tests = prevTests.filter((t) => t.date !== today).concat([rec]).slice(-40); saveProfile();
+  const d = day(); if (!d.menu.test) { d.menu.test = true; addXp(XP.test); } saveDay();
   const est = estimate();
-  $("tsOut").innerHTML = '<div class="row"><span class="big num">' + est + '<small>推定TOEIC ±40</small></span></div>'
-    + MAIN_LV.map((lv) => '<div class="skill"><span>' + LV_LABEL[lv] + '</span><div class="bar"><i style="width:' + Math.round(a[lv] * 100) + '%"></i></div><span class="v">' + tRes[lv].ok + '/' + tRes[lv].n + '</span></div>').join("")
-    + '<div class="skill"><span>聞き取り</span><div class="bar"><i style="width:' + Math.round(l * 100) + '%"></i></div><span class="v">' + Math.round(l * 100) + '%</span></div>'
-    + '<div class="note" style="margin-top:8px">' + (est >= 860 ? "語彙は900圏内。リスニングの精度と表現の幅で差がつく段階です。" : est >= 730 ? "730点レベルの語彙を固めつつ、860点レベルを毎日15語ずつ積むと3か月で見える景色が変わります。" : "まず600点レベル400語を2週間で一周。毎日の単語+ディクテーションを最優先に。") + "</div>";
+  const diff = prevEst == null ? null : est - prevEst;
+  const lvLine = (name, v, pv) => '<div class="skill"><span>' + name + '</span><div class="bar"><i style="width:' + Math.round(v * 100) + '%"></i></div><span class="v">' + Math.round(v * 100) + '% ' + deltaTag(pv == null ? null : Math.round(v * 100) - Math.round(pv * 100)) + "</span></div>";
+  $("tsOut").innerHTML = '<div class="row"><span class="big num">' + est + '<small>推定TOEIC ±40</small></span>' + deltaTag(diff) + (prevEst != null ? '<span class="grow"></span><span class="prog">前回 ' + prevEst + " (" + esc(prev.date.slice(5).replace("-", "/")) + ")</span>" : "") + "</div>"
+    + MAIN_LV.map((lv) => lvLine(LV_LABEL[lv], a[lv], prev ? (prev.a || {})[lv] : null)).join("")
+    + lvLine("聞き取り", l, prev ? prev.l : null)
+    + '<div class="note" style="margin-top:8px">' + (diff == null ? (est >= 860 ? "語彙は900圏内。リスニングの精度と表現の幅で差がつく段階です。" : est >= 730 ? "730点レベルの語彙を固めつつ、860点レベルを毎日15語ずつ積むと3か月で見える景色が変わります。" : "まず600点レベル400語を2週間で一周。毎日の単語+ディクテーションを最優先に。")
+        : diff >= 20 ? "前回から " + diff + " 点アップ。伸びた帯の語彙を復習で固めると定着します。" : diff > -20 ? "前回とほぼ同じ。±40の誤差内なので、次回までの2週間で学習中の語を定着(復習間隔3週間以上)に変えるのが目標です。" : "前回から " + Math.abs(diff) + " 点ダウン。落ちた帯(上の▼)の語を単語タブの復習で集中的に。") + "</div>"
+    + '<div class="muted" style="margin-top:6px">次回の定期判定は ' + esc(addDays(today, profile.testEvery || 14).slice(5).replace("-", "/")) + ' 以降にホームへ出ます。</div>';
 }
 
 /* ---------- boot ---------- */
