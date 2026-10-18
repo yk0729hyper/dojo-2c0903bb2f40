@@ -372,11 +372,24 @@ function addXp(n) { day().xp += n; renderHeader(); }
 const player = $("player");
 let curFile = null, stopAt = null, stopTimer = null;
 player.addEventListener("timeupdate", () => { if (stopAt != null && player.currentTime >= stopAt) { player.pause(); stopAt = null; } });
-function unlockAudio() { try { const p = player.play(); if (p && p.catch) p.catch(() => {}); player.pause(); } catch (e) {} }
+/* iOS only lets an <audio> element play after a play() that ran inside a tap, and that play() needs a source.
+   The first tap primes the element with a muted play/pause; later plays (after awaits) are then allowed. */
+let unlocked = false, unlockP = null;
+function unlockAudio() {
+  if (unlocked || unlockP) return unlockP;
+  try {
+    if (!player.getAttribute("src")) { const k = Object.keys(FILES)[0]; if (!k) return null; player.src = FILES[k]; curFile = k; }
+    player.muted = true;
+    const p = player.play();
+    unlockP = (p && p.then ? p : Promise.resolve()).then(() => { unlocked = true; }).catch(() => {}).then(() => { if (stopAt == null) player.pause(); player.muted = false; unlockP = null; });
+    return unlockP;
+  } catch (e) { return null; }
+}
 async function playClip(f, s, e, rate = 1) {
   const url = FILES[f];
   if (!url) return false;
   clearTimeout(stopTimer); stopAt = null;
+  if (unlockP) await unlockP;
   if (curFile !== f || !player.src) {
     player.src = url; curFile = f;
     await new Promise((res) => { const done = () => res(); player.addEventListener("loadedmetadata", done, { once: true }); player.addEventListener("error", done, { once: true }); player.load(); setTimeout(done, 4000); });

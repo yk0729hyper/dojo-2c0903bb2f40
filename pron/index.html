@@ -148,7 +148,9 @@ h3 { font-size: 14px; margin: 0; color: var(--ink-2); font-weight: 500; letter-s
       <button class="bigbtn play" id="itPlay" type="button"><span class="ico">▶</span>お手本<small>ネイティブ音声</small></button>
       <button class="bigbtn rec" id="itRec" type="button"><span class="ico">●</span><span id="itRecT">録音</span><small id="itRecS">タップして話す</small></button>
     </div>
-    <div class="row"><span class="muted">挑戦</span><span class="tries" id="itTries"></span><span class="grow"></span><span class="prog" id="itStatus"></span></div>
+    <div class="row"><span class="muted">挑戦</span><span class="tries" id="itTries"></span><span class="grow"></span><span class="prog num" id="itMeter"></span></div>
+    <div class="prog" id="itStatus"></div>
+    <div class="muted" id="itTrace" style="font-size:11px;overflow-wrap:anywhere" hidden></div>
     <div id="itResult" hidden style="display:flex;flex-direction:column;gap:6px">
       <div class="row"><span class="score" id="itScore"></span><span class="grow"></span><span class="prog" id="itBest"></span></div>
       <div class="heard" id="itHeard"></div>
@@ -220,11 +222,25 @@ function watchStop(seq) {
   const tick = () => { if (seq !== playSeq) return; if (stopAt != null && player.currentTime >= stopAt) { player.pause(); stopAt = null; return; } if (stopAt != null) rafId = requestAnimationFrame(tick); };
   rafId = requestAnimationFrame(tick);
 }
-function unlockAudio() { try { const p = player.play(); if (p && p.catch) p.catch(() => {}); player.pause(); } catch (e) {} }
+/* iOS only lets an <audio> element play after a play() that ran inside a tap, and that play() must have a source.
+   The first tap primes the element with a muted play/pause; later plays (after awaits) are then allowed. */
+let unlocked = false, unlockP = null;
+function unlockAudio() {
+  if (unlocked || unlockP) return unlockP;
+  try {
+    if (!player.getAttribute("src")) { const k = Object.keys(FILES)[0]; if (!k) return null; player.src = AUDIO_BASE + FILES[k]; curFile = k; }
+    player.muted = true;
+    const p = player.play();
+    unlockP = (p && p.then ? p : Promise.resolve()).then(() => { unlocked = true; }).catch(() => {}).then(() => { if (stopAt == null) player.pause(); player.muted = false; unlockP = null; });
+    return unlockP;
+  } catch (e) { return null; }
+}
+const TAIL = 0.3; /* the phrase boundaries sit at the silence threshold; the final consonant needs this much more */
 async function playClip(w, rate = 1) {
   const url = FILES[w.f] ? AUDIO_BASE + FILES[w.f] : null;
   if (!url) return speak(w.ph);
   const seq = ++playSeq; stopWatch(); stopAt = null;
+  if (unlockP) await unlockP;
   if (curFile !== w.f || !player.getAttribute("src")) {
     player.src = url; curFile = w.f; player.load();
     await once(["loadedmetadata", "error"], 6000);
@@ -234,7 +250,7 @@ async function playClip(w, rate = 1) {
     player.pause(); player.playbackRate = rate;
     if (Math.abs(player.currentTime - w.ps) > 0.05) { const p = once(["seeked", "error"], 2500); player.currentTime = w.ps; await p; }
     if (seq !== playSeq) return;
-    stopAt = w.pe;
+    stopAt = w.pe + TAIL;
     player.addEventListener("playing", () => { if (seq !== playSeq || stopAt == null) return; clearTimeout(stopTimer); stopTimer = setTimeout(() => { if (seq === playSeq && stopAt != null) { player.pause(); stopAt = null; } }, Math.max(0, stopAt - player.currentTime) / rate * 1000 + 150); }, { once: true });
     watchStop(seq);
     await player.play();
@@ -282,10 +298,38 @@ function diffWords(ref, hyp) {
 const renderMarks = (marks) => marks.map((m) => '<span class="' + (m.ok ? "ok" : "ng") + '">' + esc(m.w) + "</span>").join(" ");
 function bestOf(ref, alts) { let best = null; for (const h of alts) { const r = diffWords(ref, h); if (!best || r.score > best.score) best = Object.assign({ hyp: h }, r); } return best || Object.assign({ hyp: "" }, diffWords(ref, "")); }
 
+/* ---------- microphone (warm-up + level meter) ---------- */
+/* iOS: holding a getUserMedia stream puts the audio session into record mode before recognition starts; without it
+   the recognizer can receive silence after the page has played audio. The stream also feeds a level meter so the
+   user can see whether sound reaches the microphone at all. */
+let micStream = null, micCtx = null, micAn = null, micErr = null, meterId = null;
+async function openMic() {
+  if (micStream && micStream.active) return true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { micErr = "no-getusermedia"; return false; }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false }); micErr = null;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { micCtx = micCtx || new AC(); if (micCtx.state === "suspended") micCtx.resume().catch(() => {}); micAn = micCtx.createAnalyser(); micAn.fftSize = 512; micCtx.createMediaStreamSource(micStream).connect(micAn); }
+    } catch (e) { micAn = null; }
+    return true;
+  } catch (e) { micErr = (e && e.name) || "mic-error"; micStream = null; return false; }
+}
+function closeMic() { stopMeter(); try { if (micStream) micStream.getTracks().forEach((t) => t.stop()); } catch (e) {} micStream = null; micAn = null; }
+let peakLevel = 0;
+function startMeter() {
+  stopMeter(); peakLevel = 0; if (!micAn) return;
+  const buf = new Uint8Array(micAn.fftSize);
+  const tick = () => { micAn.getByteTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; s += v * v; } const rms = Math.sqrt(s / buf.length); peakLevel = Math.max(peakLevel, rms); const n = Math.min(8, Math.round(rms * 40)); $("itMeter").textContent = "音量 " + "▮".repeat(n) + "▯".repeat(8 - n); meterId = requestAnimationFrame(tick); };
+  meterId = requestAnimationFrame(tick);
+}
+function stopMeter() { if (meterId) cancelAnimationFrame(meterId); meterId = null; }
+
 /* ---------- speech recognition ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 const srOK = !!SR || SIM;
-let rec = null, recBusy = false, recTimer = null;
+let rec = null, recBusy = false, recTimer = null, trace = [], traceT0 = 0;
+const mark = (ev) => { trace.push(ev + "@" + ((performance.now() - traceT0) / 1000).toFixed(1)); };
 /* iOS Safari can fire onresult more than once even with interimResults=false, so results are collected
    and judged once, when recognition ends (or on the first final result). */
 function startRec(onResult, onFail, onInterim) {
@@ -294,13 +338,14 @@ function startRec(onResult, onFail, onInterim) {
   try { if (rec) { rec.onresult = rec.onerror = rec.onend = null; try { rec.abort(); } catch (e) {} } } catch (e) {}
   /* interimResults must be true on iOS Safari: with false it sometimes never delivers a result at all. */
   rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 5;
-  let alts = [], failed = null, settled = false, nEvents = 0; recBusy = true;
+  let alts = [], failed = null, settled = false, nEvents = 0; recBusy = true; trace = []; traceT0 = performance.now();
+  ["start", "audiostart", "soundstart", "speechstart", "speechend", "soundend", "audioend", "nomatch"].forEach((n) => { rec["on" + n] = () => mark(n); });
   const settle = () => {
-    if (settled) return; settled = true; recBusy = false; clearTimeout(recTimer);
+    if (settled) return; settled = true; recBusy = false; clearTimeout(recTimer); mark("settle");
     if (alts.length) onResult(alts); else onFail(failed || (nEvents ? "empty" : "no-speech"));
   };
   rec.onresult = (ev) => {
-    nEvents++;
+    nEvents++; mark("result" + nEvents);
     const rs = []; for (let i = 0; i < ev.results.length; i++) rs.push(ev.results[i]);
     if (!rs.length) return;
     const nAlt = Math.max(1, ...rs.map((r) => r.length));
@@ -309,8 +354,8 @@ function startRec(onResult, onFail, onInterim) {
     if (got.length) { alts = got; if (onInterim) onInterim(got[0]); }
     if (rs.every((r) => r.isFinal)) { try { rec.stop(); } catch (e) {} setTimeout(settle, 300); }
   };
-  rec.onerror = (ev) => { failed = (ev && ev.error) || "error"; if (failed === "aborted" && alts.length) failed = null; setTimeout(settle, 50); };
-  rec.onend = () => { setTimeout(settle, 50); };
+  rec.onerror = (ev) => { failed = (ev && ev.error) || "error"; mark("error:" + failed); if (failed === "aborted" && alts.length) failed = null; setTimeout(settle, 50); };
+  rec.onend = () => { mark("end"); setTimeout(settle, 50); };
   try { rec.start(); } catch (e) { recBusy = false; settled = true; return onFail("start"); }
   recTimer = setTimeout(() => { try { rec.stop(); } catch (e) {} setTimeout(settle, 600); }, 10000);
 }
@@ -349,9 +394,16 @@ function showItem() {
   $("itPhrase").innerHTML = esc(w.ph); $("itJa").textContent = w.ja || "";
   $("itResult").hidden = true; $("itNext").disabled = true; $("itNext").textContent = idx + 1 >= q.length ? "結果を見る" : "次へ";
   $("itRec").disabled = !srOK; $("itRec").classList.remove("live"); $("itRecT").textContent = "録音"; $("itRecS").textContent = srOK ? "タップして話す" : "使用不可";
-  $("itStatus").textContent = srOK ? "まずお手本を聞く" : "";
+  $("itStatus").textContent = srOK ? "まずお手本を聞く" : ""; $("itMeter").textContent = ""; $("itTrace").hidden = true;
   renderTries();
   setTimeout(() => playClip(w), 150);
+}
+function showTrace(extra) {
+  const parts = [];
+  if (micErr) parts.push("マイク取得: " + micErr); else if (micStream) parts.push("マイク: 取得済み" + (peakLevel ? " / 最大音量 " + Math.round(peakLevel * 100) : " / 音量0 (マイクに音が届いていません)"));
+  if (trace.length) parts.push("認識イベント: " + trace.join(" → "));
+  if (extra) parts.push(extra);
+  $("itTrace").textContent = parts.join("  |  "); $("itTrace").hidden = !parts.length;
 }
 function renderTries() { $("itTries").innerHTML = Array.from({ length: MAX_TRIES }, (_, i) => '<i class="' + (i < tries ? "on" : "") + '"></i>').join(""); }
 $("itPlay").addEventListener("click", () => { stopRec(); playClip(q[idx]); });
@@ -360,8 +412,9 @@ $("itRec").addEventListener("click", () => {
   if (tries >= MAX_TRIES) return toast("この文は3回まで。次へ進みましょう");
   releaseAudio();
   const w = q[idx];
-  $("itRec").classList.add("live"); $("itRecT").textContent = "聞いています"; $("itRecS").textContent = "話し終えたら少し待つ"; $("itStatus").textContent = "";
-  const finish = () => { $("itRec").classList.remove("live"); $("itRecT").textContent = tries >= MAX_TRIES ? "終了" : "もう一度"; $("itRecS").textContent = tries >= MAX_TRIES ? "3回挑戦しました" : "タップして話す"; $("itRec").disabled = tries >= MAX_TRIES; };
+  $("itRec").classList.add("live"); $("itRecT").textContent = "聞いています"; $("itRecS").textContent = "話し終えたら少し待つ"; $("itStatus").textContent = ""; $("itTrace").hidden = true;
+  if (!SIM) { openMic().then(() => startMeter()); }
+  const finish = () => { stopMeter(); $("itRec").classList.remove("live"); $("itRecT").textContent = tries >= MAX_TRIES ? "終了" : "もう一度"; $("itRecS").textContent = tries >= MAX_TRIES ? "3回挑戦しました" : "タップして話す"; $("itRec").disabled = tries >= MAX_TRIES; };
   startRec((alts) => {
     tries++; renderTries();
     const r = bestOf(w.ph, alts);
@@ -374,11 +427,12 @@ $("itRec").addEventListener("click", () => {
     const miss = r.marks.filter((m) => !m.ok).map((m) => m.w.replace(/[^A-Za-z0-9'\-]/g, ""));
     $("itAdvice").textContent = pct === 100 ? "完璧。ネイティブに通じる発音です。" : miss.length ? "赤い語が別の語に聞こえています: " + miss.join(", ") + "。お手本をもう一度聞いて、強勢の位置と語尾の子音を意識して。" : "語順か抜けがありました。もう一度ゆっくり。";
     $("itResult").hidden = false; $("itNext").disabled = false;
-    finish();
+    finish(); showTrace("");
   }, (why) => {
     $("itStatus").textContent = (FAIL_MSG[why] || "認識できませんでした") + " [" + why + "]";
     if (why === "not-allowed" || why === "service-not-allowed" || why === "unsupported") $("noSr").hidden = false;
     finish(); if (tries === 0) { $("itRec").disabled = false; $("itRecT").textContent = "録音"; }
+    showTrace(why === "no-speech" || why === "empty" ? "音は届いているのに英文にならない場合: 設定 → 一般 → キーボード → 音声入力言語 に「英語」を追加してください" : "");
   }, (text) => { $("itStatus").textContent = "聞き取り中: " + text; });
 });
 function commit(skipped) {
@@ -393,7 +447,7 @@ function next() {
   finishSession();
 }
 function finishSession() {
-  stopAudio(); stopRec();
+  stopAudio(); stopRec(); closeMic();
   const avg = Math.round(results.reduce((a, r) => a + r.score, 0) / Math.max(1, results.length) * 100);
   const first = q[0], last = q[q.length - 1];
   st.pos = Math.min(POOL.length, st.pos + q.length); st.done += q.length;
@@ -408,8 +462,15 @@ function finishSession() {
 /* A tapped claude.ai link is a universal link on iOS and opens the Claude app, which drops the hash; a script-driven
    navigation stays in Safari, where the dojo (claude.ai) receives #pronNN. */
 $("dnBack").addEventListener("click", (ev) => { ev.preventDefault(); location.href = $("dnBack").href; });
-$("stGo").addEventListener("click", () => { unlockAudio(); startSession(); });
-$("dnAgain").addEventListener("click", () => { unlockAudio(); startSession(); });
+function beginFromTap() {
+  unlockAudio();
+  /* asking for the microphone inside the tap shows the permission dialog once, at the start, not mid-exercise */
+  if (!SIM && srOK) openMic().then((ok) => { if (!ok) toast("マイクが使えません (" + micErr + ")。Safariの設定でマイクを許可してください"); });
+  startSession();
+}
+$("stGo").addEventListener("click", beginFromTap);
+$("dnAgain").addEventListener("click", beginFromTap);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { stopMeter(); } });
 
 /* ---------- boot ---------- */
 (async () => {
