@@ -1,0 +1,872 @@
+<title>TOEIC900 道場</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+:root {
+  /* Layout: one-column phone app. Fixed top bar (streak / XP), fixed bottom tab bar, one view at a time. */
+  --bg: #F2F3F5; --surface: #FFFFFF; --ink: #1C2230; --ink-2: #5B6473; --line: #DCE0E7;
+  --gold: #B8901C; --gold-ink: #7E6110; --gold-soft: #F6ECCB;
+  --good: #2E7D4F; --good-soft: #DDF0E4; --bad: #B23A3A; --bad-soft: #F6DEDE; --warn: #B8690F;
+  --font-ui: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --font-en: "Newsreader", "Georgia", "Times New Roman", serif;
+  --tab-h: 58px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161E; --surface: #1B212C; --ink: #E9ECF2; --ink-2: #9AA3B2; --line: #2B3342;
+  --gold: #D9B341; --gold-ink: #E6C65C; --gold-soft: #3A3217;
+  --good: #5FBF85; --good-soft: #1E3A2A; --bad: #E07070; --bad-soft: #42232A; --warn: #E0A04A;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #12161E; --surface: #1B212C; --ink: #E9ECF2; --ink-2: #9AA3B2; --line: #2B3342;
+  --gold: #D9B341; --gold-ink: #E6C65C; --gold-soft: #3A3217;
+  --good: #5FBF85; --good-soft: #1E3A2A; --bad: #E07070; --bad-soft: #42232A; --warn: #E0A04A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.55; -webkit-text-size-adjust: 100%; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.brand { font-weight: 700; letter-spacing: .02em; }
+.brand small { color: var(--gold-ink); font-weight: 500; margin-left: 6px; font-size: 12px; }
+.hstats { display: flex; gap: 10px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hstats b { color: var(--ink); font-weight: 700; }
+
+main { padding-block: 14px calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 20px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 640px; margin: 0 auto; }
+.view { display: flex; flex-direction: column; gap: 14px; }
+h2 { font-size: 17px; margin: 0; font-weight: 700; text-wrap: balance; }
+h3 { font-size: 14px; margin: 0; color: var(--ink-2); font-weight: 500; letter-spacing: .04em; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.muted { color: var(--ink-2); font-size: 13px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+.num { font-variant-numeric: tabular-nums; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 14px; font-weight: 500; min-height: 44px; }
+.btn.primary { background: var(--gold); border-color: var(--gold); color: #1C1A10; font-weight: 700; }
+.btn.block { width: 100%; }
+.btn.small { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.on { background: var(--gold-soft); border-color: var(--gold); }
+textarea, input[type="text"] { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); min-height: 44px; }
+textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+.en { font-family: var(--font-en); }
+.word { font-family: var(--font-en); font-size: 38px; font-weight: 500; line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; }
+.phrase { font-family: var(--font-en); font-size: 20px; line-height: 1.4; }
+.ja { font-size: 17px; font-weight: 500; }
+.pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; letter-spacing: .04em; }
+.pill.lv { background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); }
+.bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--gold); border-radius: 999px; min-width: 0; }
+.bar.good > i { background: var(--good); }
+.menu { display: flex; flex-direction: column; gap: 0; }
+.menu button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 12px 2px; min-height: 56px; }
+.menu button:first-child { border-top: 0; }
+.chk { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; flex: none; font-size: 13px; }
+.chk.done { background: var(--good); border-color: var(--good); color: #fff; }
+.menu .t { font-weight: 700; }
+.menu .s { font-size: 12px; color: var(--ink-2); }
+.menu .xp { margin-left: auto; font-size: 12px; color: var(--gold-ink); font-weight: 700; white-space: nowrap; }
+.big { font-size: 44px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.big small { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 6px; letter-spacing: 0; }
+.rates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.rates button { border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 8px 4px; min-height: 56px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-weight: 700; }
+.rates button small { font-weight: 400; color: var(--ink-2); font-size: 11px; }
+.rates .r0 { border-color: var(--bad); color: var(--bad); }
+.rates .r3 { border-color: var(--good); color: var(--good); }
+.choices { display: flex; flex-direction: column; gap: 8px; }
+.choices button { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; min-height: 48px; }
+.choices button.ok { background: var(--good-soft); border-color: var(--good); }
+.choices button.ng { background: var(--bad-soft); border-color: var(--bad); }
+.diff { font-family: var(--font-en); font-size: 19px; line-height: 1.6; }
+.diff .ok { color: var(--good); }
+.diff .ng { color: var(--bad); text-decoration: underline; text-decoration-style: wavy; }
+.playbtn { width: 84px; height: 84px; border-radius: 50%; background: var(--gold); border: 0; color: #1C1A10; font-weight: 700; font-size: 14px; display: grid; place-items: center; margin: 4px auto; }
+.playbtn.sec { width: 44px; height: 44px; font-size: 12px; margin: 0; background: var(--gold-soft); color: var(--gold-ink); }
+.speeds { display: flex; gap: 6px; justify-content: center; }
+.skill { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+.skill > span:first-child { white-space: nowrap; min-width: 5em; }
+.skill .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.lvrow { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.lvrow .row { gap: 6px; }
+.lvrow .v { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--ink-2); font-size: 10px; font-family: var(--font-ui); }
+.chart .today text { fill: var(--ink); font-weight: 700; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.item { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.item:first-child { border-top: 0; padding-top: 0; }
+.score { font-weight: 700; color: var(--gold-ink); font-variant-numeric: tabular-nums; }
+.issues { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.note { font-size: 13px; background: var(--gold-soft); color: var(--gold-ink); border-radius: 10px; padding: 8px 12px; }
+.banner { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.prog { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.center { text-align: center; }
+
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--surface); border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.tabs button { border: 0; background: none; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--ink-2); }
+.tabs button .ico { font-family: var(--font-en); font-size: 17px; font-weight: 600; line-height: 1; color: var(--ink-2); }
+.tabs button.on, .tabs button.on .ico { color: var(--gold-ink); }
+.tabs button.on { font-weight: 700; }
+
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 14px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 9; max-width: 90vw; }
+#toast.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="brand">TOEIC900 道場<small>金のフレーズ対応</small></div>
+  <div class="hstats"><span>連続 <b id="hdStreak" class="num">0</b>日</span><span><b id="hdXp" class="num">0</b> XP</span></div>
+</header>
+
+<main>
+<!-- ================= HOME ================= -->
+<section id="v-home" class="view">
+  <div id="dbBanner" class="banner" hidden>保存機能が使えません。Claudeアプリ内でこのページを開くと、進捗が保存されます。</div>
+  <div id="dataBanner" class="banner" hidden>単語データを読み込めませんでした。しばらくしてから開き直してください。</div>
+
+  <div class="card">
+    <h3>推定レベル</h3>
+    <div id="levelBox"></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3 class="grow">今日のメニュー <span id="menuDate" class="muted"></span></h3><span id="menuXp" class="prog"></span></div>
+    <div class="menu" id="menuList"></div>
+    <div class="muted">通勤の15分で5つ全部が終わる量にしてあります。1つだけでも連続日数は続きます。</div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3 class="grow">14日間の学習量 (XP)</h3><span class="prog">最高連続 <b id="bestStreak" class="num">0</b>日</span></div>
+    <svg id="chart14" class="chart" viewBox="0 0 340 120" role="img" aria-label="直近14日のXP"></svg>
+  </div>
+
+  <div class="card">
+    <h3>スキル別の現在地</h3>
+    <div id="skills" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+
+  <div class="card">
+    <h3>金のフレーズ 定着状況</h3>
+    <div id="levels" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="muted">「定着」は復習間隔が3週間以上に伸びた語。「学習中」は一度でも出題した語。</div>
+  </div>
+</section>
+
+<!-- ================= VOCAB ================= -->
+<section id="v-vocab" class="view" hidden>
+  <div id="vocabStart" class="card">
+    <h2>単語 (金のフレーズ)</h2>
+    <div id="vocabPlan" class="muted"></div>
+    <div class="row"><span class="muted">1日の新規語数</span><select id="newPerDay" class="btn small"><option>5</option><option>10</option><option selected>15</option><option>20</option><option>30</option></select></div>
+    <button id="vocabGo" class="btn primary block">開始</button>
+    <div class="muted">カードの表で意味を思い出し、裏で答え合わせ。音声は本の収録音声です。イヤホン推奨。</div>
+  </div>
+  <div id="vocabCard" class="card" hidden>
+    <div class="row"><span id="vcLv" class="pill lv"></span><span id="vcNew" class="pill" hidden>NEW</span><span class="grow"></span><span id="vcProg" class="prog"></span></div>
+    <div class="word" id="vcWord"></div>
+    <div class="row"><button class="playbtn sec" id="vcPlayWord" type="button">▶</button><span class="muted">単語を再生</span></div>
+    <div id="vcBack" hidden style="display:flex;flex-direction:column;gap:10px">
+      <div class="ja" id="vcJa"></div>
+      <div class="phrase" id="vcPhrase"></div>
+      <div class="row"><button class="playbtn sec" id="vcPlayPhrase" type="button">▶</button><span class="muted">フレーズを再生</span></div>
+    </div>
+    <button id="vcFlip" class="btn primary block">意味を見る</button>
+    <div class="rates" id="vcRates" hidden>
+      <button class="r0" data-r="0">もう一度<small>すぐ再出題</small></button>
+      <button class="r1" data-r="1">難しい<small id="ivHard"></small></button>
+      <button class="r2" data-r="2">できた<small id="ivGood"></small></button>
+      <button class="r3" data-r="3">簡単<small id="ivEasy"></small></button>
+    </div>
+  </div>
+  <div id="vocabDone" class="card" hidden>
+    <h2>今日の単語、完了</h2>
+    <div id="vocabSummary"></div>
+    <button class="btn block" data-go="home">ホームへ</button>
+  </div>
+</section>
+
+<!-- ================= LISTEN ================= -->
+<section id="v-listen" class="view" hidden>
+  <div id="listenStart" class="card">
+    <h2>リスニング (ディクテーション)</h2>
+    <div class="muted">本の例文をネイティブ音声で聞き、聞こえた通りに英語で打ち込みます。1回目は1.0倍、聞き取れなければ0.75倍へ。8問で約6分。</div>
+    <div class="row"><span class="muted">問題数</span><select id="listenCount" class="btn small"><option>5</option><option selected>8</option><option>12</option></select></div>
+    <button id="listenGo" class="btn primary block">開始</button>
+  </div>
+  <div id="listenItem" class="card" hidden>
+    <div class="row"><span id="liProg" class="prog"></span><span class="grow"></span><span id="liPlays" class="prog"></span></div>
+    <button class="playbtn" id="liPlay" type="button">再生</button>
+    <div class="speeds"><button class="btn small on" data-rate="1">1.0x</button><button class="btn small" data-rate="0.75">0.75x</button><button class="btn small" data-rate="1.25">1.25x</button></div>
+    <textarea id="liInput" placeholder="聞こえた英文を入力" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
+    <button id="liCheck" class="btn primary block">答え合わせ</button>
+    <div id="liResult" hidden style="display:flex;flex-direction:column;gap:8px">
+      <div class="diff" id="liDiff"></div>
+      <div class="ja" id="liJa"></div>
+      <div class="row"><span class="score" id="liScore"></span><span class="grow"></span><button class="btn small" id="liReplay">正解を聞く</button></div>
+      <button id="liNext" class="btn primary block">次へ</button>
+    </div>
+  </div>
+  <div id="listenDone" class="card" hidden>
+    <h2>リスニング、完了</h2>
+    <div id="listenSummary"></div>
+    <button class="btn block" data-go="home">ホームへ</button>
+  </div>
+</section>
+
+<!-- ================= WRITE ================= -->
+<section id="v-write" class="view" hidden>
+  <div class="card">
+    <h2>英作文 (ビジネス)</h2>
+    <div class="row"><span class="pill">今日のお題</span><span class="grow"></span><button class="btn small" id="wrAnother">別のお題</button></div>
+    <div id="wrPrompt" class="ja"></div>
+    <div id="wrHint" class="muted"></div>
+    <textarea id="wrInput" placeholder="英語で書く (3〜6文が目安)" autocapitalize="sentences"></textarea>
+    <button id="wrGrade" class="btn primary block">添削してもらう</button>
+    <div id="wrStatus" class="muted" hidden></div>
+    <div id="wrResult" hidden style="display:flex;flex-direction:column;gap:10px">
+      <div class="row"><span class="big"><span id="wrScore">0</span><small>/100</small></span></div>
+      <div><h3>直した英文</h3><div class="phrase" id="wrCorrected"></div></div>
+      <div><h3>指摘</h3><ul class="issues" id="wrIssues"></ul></div>
+      <div><h3>アメリカ人ならこう言う</h3><div class="list" id="wrNatural"></div></div>
+      <div class="note" id="wrTip"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>最近の添削</h3>
+    <div class="list" id="wrHistory"><div class="muted">まだありません。</div></div>
+  </div>
+</section>
+
+<!-- ================= EXPR ================= -->
+<section id="v-expr" class="view" hidden>
+  <div class="card">
+    <h2>表現 (舐められない言い方)</h2>
+    <div class="row"><span class="pill" id="exTheme">テーマ</span><span class="grow"></span><span class="prog" id="exDate"></span></div>
+    <div id="exEmpty" class="muted">今日の3表現をClaudeに作ってもらいます。丁寧すぎず、米国のオフィスで実際に使われる率直な言い方を選びます。</div>
+    <button id="exGen" class="btn primary block">今日の表現を出す</button>
+    <div id="exStatus" class="muted" hidden></div>
+    <div id="exList" class="list" hidden></div>
+    <button id="exDone" class="btn block" hidden>声に出して3回ずつ読んだ (完了)</button>
+  </div>
+  <div class="card">
+    <h2>YouTubeで出たフレーズ</h2>
+    <div class="row"><span class="pill">言えそうで言えない</span><span class="grow"></span><span class="prog" id="ytProg"></span></div>
+    <div id="ytStatus" class="muted">読み込み中...</div>
+    <div id="ytList" class="list" hidden></div>
+    <button id="ytMore" class="btn block" hidden>次の3件を出す</button>
+    <div class="muted" id="ytNote" style="font-size:12px;margin-top:6px">通勤中に見た再生リスト「英会話」の動画(たっちゃんの映画で英語塾ほか)から抜き出したフレーズ。毎日3件、未学習のものが日替わりで出ます。</div>
+  </div>
+</section>
+
+<!-- ================= PLACEMENT TEST ================= -->
+<section id="v-test" class="view" hidden>
+  <div id="tsIntro" class="card">
+    <h2>レベル判定テスト</h2>
+    <div class="muted">語彙40問(4択・各レベル10問)と、ディクテーション6問。約10分。結果から推定TOEICスコアを出します。あくまで推定なので、どこかで本番を1回受けることをおすすめします。</div>
+    <button id="tsGo" class="btn primary block">はじめる</button>
+    <button class="btn block" data-go="home">あとで</button>
+  </div>
+  <div id="tsVocab" class="card" hidden>
+    <div class="row"><span class="pill">語彙</span><span class="grow"></span><span id="tsProg" class="prog"></span></div>
+    <div class="word" id="tsWord"></div>
+    <div class="choices" id="tsChoices"></div>
+  </div>
+  <div id="tsListen" class="card" hidden>
+    <div class="row"><span class="pill">ディクテーション</span><span class="grow"></span><span id="tsLProg" class="prog"></span></div>
+    <button class="playbtn" id="tsPlay" type="button">再生</button>
+    <div class="muted center">再生は2回まで</div>
+    <textarea id="tsInput" placeholder="聞こえた英文を入力" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
+    <button id="tsCheck" class="btn primary block">決定</button>
+  </div>
+  <div id="tsResult" class="card" hidden>
+    <h2>判定結果</h2>
+    <div id="tsOut"></div>
+    <button class="btn primary block" data-go="home">ホームへ</button>
+  </div>
+</section>
+
+<!-- ================= PRON ================= -->
+<section id="v-pron" class="view" hidden>
+  <div class="card">
+    <h2>発音 (10フレーズ)</h2>
+    <div class="muted">このアプリの中ではマイクが使えないため、発音練習だけは別ページで行います。金のフレーズの例文をネイティブ音声で聞き、同じように言うと、iPhoneが聞き取った英文とお手本の単語一致率が出ます。終わったら「道場に戻る」で完了が記録されます。</div>
+    <a id="prOpen" class="btn primary block" href="#" target="_blank" rel="noopener">発音ページを開く (Safari)</a>
+    <div id="prToday" class="note" hidden></div>
+    <div class="muted">iPhoneの Safari で開いてください。初回は「音声認識を許可」をタップ。設定の Siri と音声入力がオンになっている必要があります。</div>
+  </div>
+  <div class="card">
+    <h3>最近の一致率</h3>
+    <div class="list" id="prHistory"><div class="muted">まだありません。</div></div>
+  </div>
+</section>
+</main>
+
+<nav class="tabs" aria-label="メニュー">
+  <button data-go="home" class="on"><span class="ico">H</span>ホーム</button>
+  <button data-go="vocab"><span class="ico">V</span>単語</button>
+  <button data-go="listen"><span class="ico">L</span>聞く</button>
+  <button data-go="write"><span class="ico">W</span>書く</button>
+  <button data-go="expr"><span class="ico">E</span>表現</button>
+</nav>
+<audio id="player" preload="auto"></audio>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, "0");
+const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const addDays = (ds, n) => { const d = new Date(ds + "T12:00:00"); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let toastT; const toast = (m) => { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); };
+const use = (n) => (window.claude && typeof window.claude.use === "function") ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
+
+const LV_LABEL = { "600": "600点レベル", "730": "730点レベル", "860": "860点レベル", "990": "990点レベル", "sup": "補足章", "basic": "基本単語" };
+const MAIN_LV = ["600", "730", "860", "990"];
+const XP = { review: 2, newWord: 3, listenMax: 5, write: 20, expr: 10, pron: 10 };
+/* 発音ページ (GitHub Pages)。マイクはArtifact内で使えないので外部ページに置き、結果は #pronNN のハッシュで戻ってくる。 */
+const PRON_URL = "__PRON_URL__";
+
+let WORDS = [], BYID = {}, FILES = {}, CHAPTERS = {};
+let db = null, sampleFn = null;
+let profile = { newPerDay: 15, placement: null, created: todayStr() };
+let srs = {}, days = {}, writings = [], exprDoc = null;
+const today = todayStr();
+
+/* ---------- persistence ---------- */
+const pending = new Map();
+async function save(path, data) {
+  if (!db) return;
+  const body = clone(data);
+  const e = pending.get(path);
+  if (e) { e.next = body; return; }
+  const ent = { next: null }; pending.set(path, ent);
+  let cur = body;
+  while (cur) {
+    try { await db.doc(path).set(cur); } catch (err) { toast("保存に失敗しました (" + (err && err.code || "?") + ")"); }
+    cur = ent.next; ent.next = null;
+  }
+  pending.delete(path);
+}
+const saveProfile = () => save("profile/me", profile);
+function day(ds = today) { return (days[ds] ||= { date: ds, xp: 0, vr: 0, vc: 0, vn: 0, li: 0, ls: 0, wc: 0, ws: 0, ex: 0, menu: {} }); }
+const saveDay = () => save("days/" + today, day());
+function addXp(n) { day().xp += n; renderHeader(); }
+
+/* ---------- audio ---------- */
+const player = $("player");
+let curFile = null, stopAt = null, stopTimer = null;
+player.addEventListener("timeupdate", () => { if (stopAt != null && player.currentTime >= stopAt) { player.pause(); stopAt = null; } });
+function unlockAudio() { try { const p = player.play(); if (p && p.catch) p.catch(() => {}); player.pause(); } catch (e) {} }
+async function playClip(f, s, e, rate = 1) {
+  const url = FILES[f];
+  if (!url) return false;
+  clearTimeout(stopTimer); stopAt = null;
+  if (curFile !== f || !player.src) {
+    player.src = url; curFile = f;
+    await new Promise((res) => { const done = () => res(); player.addEventListener("loadedmetadata", done, { once: true }); player.addEventListener("error", done, { once: true }); player.load(); setTimeout(done, 4000); });
+  }
+  try {
+    player.pause();
+    player.playbackRate = rate;
+    player.currentTime = s;
+    stopAt = e;
+    stopTimer = setTimeout(() => { if (stopAt != null) { player.pause(); stopAt = null; } }, ((e - s) / rate) * 1000 + 120);
+    await player.play();
+    return true;
+  } catch (err) { toast("再生できませんでした。もう一度タップしてください"); return false; }
+}
+function speak(text) {
+  if (!("speechSynthesis" in window)) { toast("この端末では読み上げできません"); return; }
+  const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = 0.95;
+  const v = speechSynthesis.getVoices().find((x) => x.lang === "en-US") ; if (v) u.voice = v;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+function playWord(w, rate) { if (w.f && FILES[w.f]) return playClip(w.f, w.ws, w.we, rate); speak(w.w); }
+function playPhrase(w, rate) { if (w.f && FILES[w.f] && w.ph) return playClip(w.f, w.ps, w.pe, rate); speak(w.ph || w.w); }
+
+/* ---------- navigation ---------- */
+const VIEWS = ["home", "vocab", "listen", "write", "expr", "test", "pron"];
+function go(v) {
+  VIEWS.forEach((n) => { $("v-" + n).hidden = n !== v; });
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.go === v));
+  window.scrollTo(0, 0);
+  if (v === "home") renderHome();
+  if (v === "vocab") renderVocabStart();
+  if (v === "write") renderWrite();
+  if (v === "expr") renderExpr();
+  if (v === "pron") renderPron();
+}
+document.addEventListener("click", (ev) => { const b = ev.target.closest("[data-go]"); if (b) { unlockAudio(); go(b.dataset.go); } });
+
+/* ---------- derived stats ---------- */
+function srsEntry(id) { const w = BYID[id]; return w && srs[w.lv] ? srs[w.lv][id] : null; }
+function streakInfo() {
+  const active = new Set(Object.values(days).filter((d) => d.xp > 0).map((d) => d.date));
+  let cur = 0, ds = active.has(today) ? today : addDays(today, -1);
+  while (active.has(ds)) { cur++; ds = addDays(ds, -1); }
+  const sorted = [...active].sort(); let best = 0, run = 0, prev = null;
+  for (const d of sorted) { run = (prev && addDays(prev, 1) === d) ? run + 1 : 1; best = Math.max(best, run); prev = d; }
+  return { cur, best: Math.max(best, cur) };
+}
+const totalXp = () => Object.values(days).reduce((a, d) => a + (d.xp || 0), 0);
+function renderHeader() { $("hdStreak").textContent = streakInfo().cur; $("hdXp").textContent = totalXp(); }
+function vocabPlan() {
+  const seen = new Set(); const due = [];
+  for (const lv in srs) for (const id in srs[lv]) { seen.add(id); if (BYID[id] && srs[lv][id].due <= today) due.push(id); }
+  const nNew = Math.max(0, (profile.newPerDay || 15) - day().vn);
+  const fresh = WORDS.filter((w) => w.lv !== "basic" && !seen.has(w.id)).slice(0, nNew).map((w) => w.id);
+  return { due: shuffle(due).slice(0, 60), fresh, seen };
+}
+function estimate() {
+  const p = profile.placement; if (!p) return null;
+  const a = p.a || {}; const est = 450 + 120 * (a["600"] || 0) + 110 * (a["730"] || 0) + 100 * (a["860"] || 0) + 80 * (a["990"] || 0) + 90 * (p.l || 0);
+  return Math.round(est / 5) * 5;
+}
+function recentAvg(key, cnt, n = 7) {
+  const list = Object.values(days).sort((x, y) => y.date.localeCompare(x.date)).filter((d) => d[cnt] > 0).slice(0, n);
+  const items = list.reduce((a, d) => a + d[cnt], 0); const sum = list.reduce((a, d) => a + d[key], 0);
+  return items ? sum / items : null;
+}
+
+/* ---------- HOME ---------- */
+function renderHome() {
+  renderHeader();
+  const est = estimate();
+  const lb = $("levelBox");
+  if (est == null) {
+    lb.innerHTML = '<div class="muted">まだ判定していません。最初に10分のテストで現在地を出すと、900点までの距離が見えます。</div><button class="btn primary block" data-go="test" style="margin-top:8px">レベル判定テストを受ける</button>';
+  } else {
+    const pct = Math.max(0, Math.min(100, Math.round((est - 400) / 5)));
+    lb.innerHTML = '<div class="row"><span class="big num">' + est + '<small>推定 ±40</small></span><span class="grow"></span><span class="prog">判定日 ' + esc(profile.placement.date) + '</span></div>'
+      + '<div class="bar"><i style="width:' + pct + '%"></i></div>'
+      + '<div class="row"><span class="muted">900点まで あと <b class="num">' + Math.max(0, 900 - est) + '</b></span><span class="grow"></span><button class="btn small" data-go="test">再判定</button></div>';
+  }
+  const d = day(); const plan = vocabPlan();
+  $("menuDate").textContent = today.slice(5).replace("-", "/");
+  $("menuXp").textContent = "今日 " + d.xp + " XP";
+  const items = [
+    { k: "vocab", t: "単語", s: "復習 " + plan.due.length + " / 新規 " + plan.fresh.length + " 語", xp: "+" + (plan.due.length * XP.review + plan.fresh.length * XP.newWord) },
+    { k: "listen", t: "リスニング", s: "ディクテーション 8問", xp: "+40まで" },
+    { k: "write", t: "英作文", s: "お題1本をClaudeが添削", xp: "+" + XP.write },
+    { k: "expr", t: "表現", s: "今日の3表現を音読", xp: "+" + XP.expr },
+    { k: "pron", t: "発音", s: d.pron != null ? "今日の一致率 " + d.pron + "%" : "10フレーズを声に出して判定", xp: "+" + XP.pron },
+  ];
+  $("menuList").innerHTML = items.map((it) => '<button data-go="' + it.k + '"><span class="chk' + (d.menu[it.k] ? " done" : "") + '">' + (d.menu[it.k] ? "✓" : "") + '</span><span><div class="t">' + it.t + '</div><div class="s">' + it.s + '</div></span><span class="xp">' + it.xp + ' XP</span></button>').join("");
+
+  // 14-day chart
+  const dsList = []; for (let i = 13; i >= 0; i--) dsList.push(addDays(today, -i));
+  const vals = dsList.map((ds) => (days[ds] && days[ds].xp) || 0);
+  const max = Math.max(40, ...vals);
+  const W = 340, H = 120, top = 16, bottom = 22, left = 6, bw = 18, gap = (W - left * 2 - bw * 14) / 13;
+  let svg = '<line x1="' + left + '" y1="' + (H - bottom) + '" x2="' + (W - left) + '" y2="' + (H - bottom) + '" stroke="var(--line)" stroke-width="1"/>';
+  dsList.forEach((ds, i) => {
+    const x = left + i * (bw + gap); const h = Math.round((vals[i] / max) * (H - top - bottom)); const y = H - bottom - h;
+    const isT = ds === today;
+    svg += '<g class="' + (isT ? "today" : "") + '"><rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + h + '" rx="3" fill="' + (vals[i] ? "var(--gold)" : "var(--line)") + '"' + (vals[i] ? "" : ' height="2" y="' + (H - bottom - 2) + '"') + '/>';
+    if (i % 2 === 1 || isT) svg += '<text x="' + (x + bw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">' + Number(ds.slice(8)) + '</text>';
+    if (isT && vals[i]) svg += '<text x="' + (x + bw / 2) + '" y="' + (y - 4) + '" text-anchor="middle">' + vals[i] + '</text>';
+    svg += '</g>';
+  });
+  $("chart14").innerHTML = svg;
+  const si = streakInfo(); $("bestStreak").textContent = si.best;
+
+  // skills
+  const learned = plan.seen.size; const mature = [...plan.seen].filter((id) => { const e = srsEntry(id); return e && e.iv >= 21; }).length;
+  const la = recentAvg("ls", "li"); const wa = recentAvg("ws", "wc"); const exN = Object.values(days).reduce((a, d) => a + (d.ex || 0), 0); const pa = pronAvg();
+  const sk = [
+    { n: "語彙", v: mature, max: 1000, label: mature + " 語定着", pct: mature / 10 },
+    { n: "リスニング", v: la, label: la == null ? "未計測" : Math.round(la * 100) + "%", pct: la == null ? 0 : la * 100 },
+    { n: "英作文", v: wa, label: wa == null ? "未計測" : Math.round(wa) + "点", pct: wa == null ? 0 : wa },
+    { n: "表現", v: exN, label: exN + " 表現", pct: Math.min(100, exN / 1.5) },
+    { n: "発音", v: pa, label: pa == null ? "未計測" : Math.round(pa) + "%", pct: pa == null ? 0 : pa },
+  ];
+  $("skills").innerHTML = sk.map((s) => '<div class="skill"><span>' + s.n + '</span><div class="bar"><i style="width:' + Math.round(s.pct) + '%"></i></div><span class="v">' + s.label + '</span></div>').join("");
+  $("levels").innerHTML = MAIN_LV.map((lv) => {
+    const all = WORDS.filter((w) => w.lv === lv); const seenN = all.filter((w) => plan.seen.has(w.id)).length; const mat = all.filter((w) => { const e = srsEntry(w.id); return e && e.iv >= 21; }).length;
+    return '<div class="lvrow"><div class="row"><span>' + LV_LABEL[lv] + '</span><span class="prog">学習中 ' + seenN + '</span><span class="v">定着 ' + mat + '/' + all.length + '</span></div><div class="bar good"><i style="width:' + (all.length ? Math.round(mat / all.length * 100) : 0) + '%"></i></div></div>';
+  }).join("");
+}
+
+/* ---------- VOCAB ---------- */
+let vq = [], vIdx = 0, vCur = null, vStats = { n: 0, ok: 0, fresh: 0 }, vAgain = {};
+function renderVocabStart() {
+  $("vocabStart").hidden = false; $("vocabCard").hidden = true; $("vocabDone").hidden = true;
+  const plan = vocabPlan();
+  $("newPerDay").value = String(profile.newPerDay || 15);
+  $("vocabPlan").textContent = "復習 " + plan.due.length + " 語 / 新規 " + plan.fresh.length + " 語 (約 " + Math.max(1, Math.round((plan.due.length + plan.fresh.length) * 0.3)) + " 分)";
+  $("vocabGo").disabled = plan.due.length + plan.fresh.length === 0;
+  if ($("vocabGo").disabled) $("vocabPlan").textContent += " — 今日の分は終わっています。";
+}
+$("newPerDay").addEventListener("change", () => { profile.newPerDay = Number($("newPerDay").value); saveProfile(); renderVocabStart(); });
+$("vocabGo").addEventListener("click", () => {
+  unlockAudio();
+  const plan = vocabPlan(); vq = [...plan.due, ...plan.fresh]; vIdx = 0; vStats = { n: 0, ok: 0, fresh: 0 }; vAgain = {};
+  $("vocabStart").hidden = true; $("vocabCard").hidden = false; showCard();
+});
+function ivPreview(e, r) {
+  if (!e || e.iv === 0) return r === 1 ? "1日後" : r === 2 ? "1日後" : "4日後";
+  const iv = r === 1 ? Math.max(1, Math.round(e.iv * 1.2)) : r === 2 ? Math.round(e.iv * e.ef) : Math.round(e.iv * e.ef * 1.3);
+  return iv + "日後";
+}
+function showCard() {
+  if (vIdx >= vq.length) return finishVocab();
+  vCur = BYID[vq[vIdx]]; const e = srsEntry(vCur.id);
+  $("vcLv").textContent = LV_LABEL[vCur.lv] + (vCur.ch ? " · " + vCur.ch : "");
+  $("vcNew").hidden = !!e;
+  $("vcProg").textContent = (vIdx + 1) + " / " + vq.length;
+  $("vcWord").textContent = vCur.w;
+  $("vcJa").textContent = vCur.ja || ""; $("vcPhrase").textContent = vCur.ph || "";
+  $("vcBack").hidden = true; $("vcRates").hidden = true; $("vcFlip").hidden = false;
+  $("ivHard").textContent = ivPreview(e, 1); $("ivGood").textContent = ivPreview(e, 2); $("ivEasy").textContent = ivPreview(e, 3);
+  playWord(vCur);
+}
+$("vcPlayWord").addEventListener("click", () => vCur && playWord(vCur));
+$("vcPlayPhrase").addEventListener("click", () => vCur && playPhrase(vCur));
+$("vcFlip").addEventListener("click", () => { $("vcBack").hidden = false; $("vcRates").hidden = false; $("vcFlip").hidden = true; playPhrase(vCur); });
+$("vcRates").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-r]"); if (b) rateCard(Number(b.dataset.r)); });
+function rateCard(r) {
+  const w = vCur; const lv = w.lv; const s = (srs[lv] ||= {});
+  const wasNew = !s[w.id];
+  const c = s[w.id] || { ef: 2.5, iv: 0, reps: 0, lapses: 0, due: today, first: today };
+  if (r === 0) { c.lapses++; c.iv = 0; c.ef = Math.max(1.3, c.ef - 0.2); }
+  else if (c.iv === 0) { c.iv = r === 3 ? 4 : 1; }
+  else if (r === 1) { c.iv = Math.max(1, Math.round(c.iv * 1.2)); c.ef = Math.max(1.3, c.ef - 0.15); }
+  else if (r === 2) { c.iv = Math.max(1, Math.round(c.iv * c.ef)); }
+  else { c.iv = Math.max(2, Math.round(c.iv * c.ef * 1.3)); c.ef += 0.15; }
+  c.reps++; c.last = today; c.due = addDays(today, c.iv);
+  s[w.id] = c; save("srs/" + lv, s);
+  const d = day();
+  if (wasNew) { d.vn++; vStats.fresh++; }
+  if (!vAgain[w.id]) { d.vr++; vStats.n++; if (r > 0) { d.vc++; vStats.ok++; } }
+  if (r > 0) addXp(wasNew ? XP.newWord : XP.review);
+  if (r === 0) { vAgain[w.id] = (vAgain[w.id] || 0) + 1; if (vAgain[w.id] <= 2) vq.push(w.id); }
+  saveDay();
+  vIdx++; showCard();
+}
+function finishVocab() {
+  $("vocabCard").hidden = true; $("vocabDone").hidden = false;
+  const d = day(); d.menu.vocab = true; saveDay();
+  $("vocabSummary").innerHTML = '<div class="row"><span class="big num">' + vStats.n + '<small>語</small></span><span class="grow"></span><span class="muted">正答 ' + vStats.ok + ' / 新規 ' + vStats.fresh + '</span></div><div class="bar good"><i style="width:' + (vStats.n ? Math.round(vStats.ok / vStats.n * 100) : 0) + '%"></i></div>';
+}
+
+/* ---------- dictation helpers ---------- */
+const tokens = (s) => String(s || "").toLowerCase().replace(/’/g, "'").replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter(Boolean);
+function diffWords(ref, hyp) {
+  const a = tokens(ref), b = tokens(hyp); const n = a.length, m = b.length;
+  const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const ok = new Array(n).fill(false); let i = 0, j = 0;
+  while (i < n && j < m) { if (a[i] === b[j]) { ok[i] = true; i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) i++; else j++; }
+  const words = String(ref || "").split(/\s+/).filter(Boolean); const marks = []; let k = 0;
+  for (const w of words) { const t = tokens(w); if (!t.length) { marks.push({ w, ok: true }); continue; } const good = t.every(() => ok[k++]); marks.push({ w, ok: good }); }
+  const score = n ? ok.filter(Boolean).length / n : 0;
+  return { marks, score };
+}
+const renderDiff = (marks) => marks.map((m) => '<span class="' + (m.ok ? "ok" : "ng") + '">' + esc(m.w) + '</span>').join(" ");
+function pickPhrases(n, lvs) {
+  const seen = vocabPlan().seen;
+  const pool = WORDS.filter((w) => w.ph && w.f && (!lvs || lvs.includes(w.lv)));
+  const known = shuffle(pool.filter((w) => seen.has(w.id))); const rest = shuffle(pool.filter((w) => !seen.has(w.id)));
+  return [...known, ...rest].slice(0, n);
+}
+
+/* ---------- LISTEN ---------- */
+let lq = [], lIdx = 0, lRate = 1, lPlays = 0, lStats = { n: 0, sum: 0 };
+$("listenGo").addEventListener("click", () => {
+  unlockAudio();
+  lq = pickPhrases(Number($("listenCount").value), null); if (!lq.length) return toast("音声データがまだありません");
+  lIdx = 0; lStats = { n: 0, sum: 0 }; $("listenStart").hidden = true; $("listenItem").hidden = false; $("listenDone").hidden = true; showListen();
+});
+function showListen() {
+  if (lIdx >= lq.length) return finishListen();
+  lPlays = 0; $("liProg").textContent = (lIdx + 1) + " / " + lq.length; $("liPlays").textContent = "";
+  $("liInput").value = ""; $("liResult").hidden = true; $("liCheck").hidden = false; $("liInput").disabled = false;
+  setTimeout(() => playPhrase(lq[lIdx], lRate), 200);
+}
+$("liPlay").addEventListener("click", () => { lPlays++; $("liPlays").textContent = "再生 " + lPlays + " 回"; playPhrase(lq[lIdx], lRate); });
+document.querySelectorAll(".speeds button").forEach((b) => b.addEventListener("click", () => { lRate = Number(b.dataset.rate); document.querySelectorAll(".speeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
+$("liCheck").addEventListener("click", () => {
+  const w = lq[lIdx]; const r = diffWords(w.ph, $("liInput").value);
+  const penalty = Math.max(0, lPlays - 2) * 0.1; const score = Math.max(0, r.score - penalty);
+  $("liDiff").innerHTML = renderDiff(r.marks); $("liJa").textContent = w.w + " — " + (w.ja || "");
+  $("liScore").textContent = Math.round(score * 100) + "%" + (penalty ? " (再生回数で減点)" : "");
+  $("liResult").hidden = false; $("liCheck").hidden = true; $("liInput").disabled = true;
+  const d = day(); d.li++; d.ls += score; lStats.n++; lStats.sum += score; addXp(Math.round(XP.listenMax * score)); saveDay();
+});
+$("liReplay").addEventListener("click", () => playPhrase(lq[lIdx], 1));
+$("liNext").addEventListener("click", () => { lIdx++; showListen(); });
+function finishListen() {
+  $("listenItem").hidden = true; $("listenDone").hidden = false;
+  const d = day(); d.menu.listen = true; saveDay();
+  const avg = lStats.n ? Math.round(lStats.sum / lStats.n * 100) : 0;
+  $("listenSummary").innerHTML = '<div class="row"><span class="big num">' + avg + '<small>% 平均</small></span><span class="grow"></span><span class="muted">' + lStats.n + ' 問</span></div><div class="bar good"><i style="width:' + avg + '%"></i></div>';
+}
+
+/* ---------- WRITE ---------- */
+const PROMPTS = [
+  ["米国本社の同僚に、先週依頼したデータがまだ届いていないので今週中に送ってほしいと催促する。", "相手の非を責めずに、期限を明確に。"],
+  ["会議で米国側の提案に反対する。理由はコストが想定の1.5倍になるため。代替案を1つ添える。", "'I disagree' を使わずに反対する言い方を試す。"],
+  ["納期を1週間延ばしてほしいと米国の顧客に伝える。原因は部品の入荷遅れ。", "謝りすぎず、対策と新しい日付を示す。"],
+  ["新しく着任した米国人マネージャーに自己紹介する(所属、担当、強み、連絡の取り方)。", "3〜5文。肩書より『何ができるか』を。"],
+  ["米国チームからの急な追加依頼を断り、来月なら対応できると伝える。", "Noをはっきり、しかし関係は壊さない。"],
+  ["電話会議の冒頭で、今日のアジェンダ3点と終了時刻を宣言する。", "議長らしく簡潔に。"],
+  ["製品の不具合報告を受けた。状況確認中であることと、次の報告タイミングを伝える。", "原因不明でも信頼を保つ書き方。"],
+  ["見積もりが高すぎると言われた。値下げせずに価値を説明して押し返す。", "数字を1つ入れると説得力が出る。"],
+  ["米国出張で会った相手に、お礼と次のアクションを書く。", "具体的に何を・いつまでに。"],
+  ["上司に、プロジェクトが遅れている理由と挽回策を報告する。", "結論を先に。"],
+  ["米国人の同僚の提案に賛成し、さらに改善点を1つ付け加える。", "'Yes, and' の型。"],
+  ["ランチで米国人同僚と雑談。週末に何をしたか話し、相手にも聞く。", "カジュアルな口語で。"],
+  ["仕様変更の影響範囲を説明し、追加費用の承認を求める。", "費用の根拠を短く。"],
+  ["会議で相手の話が速くて聞き取れなかった。失礼にならないよう確認する。", "聞き返す表現を2パターン。"],
+  ["チームの成果を全体会議で1分で報告する。", "数字と次の目標。"],
+  ["米国の取引先に、担当者変更と引き継ぎを案内する。", "相手の不安を先回りして消す。"],
+  ["提出された資料に誤りが多い。相手に直してもらうよう依頼する。", "具体的に、かつ人格を責めない。"],
+  ["トラブル対応で徹夜してくれたメンバーに感謝を伝える(チーム宛)。", "具体的な行動を褒める。"],
+  ["米国側が決めた方針に疑問がある。背景を質問し、懸念を伝える。", "質問→懸念→提案の順。"],
+  ["年末の休暇予定と不在時の連絡先を伝える。", "簡潔に。"],
+  ["新機能のデモ後、フィードバックを求める。", "具体的な質問を2つ。"],
+  ["予算超過の見込みを早めに共有し、対応の選択肢を2つ示す。", "悪い知らせは早く、短く。"],
+  ["相手のメールの意図が曖昧。確認の質問をする。", "'Just to confirm' などの型。"],
+  ["退職する米国人同僚へ送別のメッセージ。", "一緒に仕事した具体的な思い出を。"],
+];
+let wrIdx = 0;
+function renderWrite() {
+  const base = Math.floor((Date.now() / 86400000)) % PROMPTS.length;
+  wrIdx = (base + (profile.wrOffset || 0)) % PROMPTS.length;
+  $("wrPrompt").textContent = PROMPTS[wrIdx][0]; $("wrHint").textContent = "ヒント: " + PROMPTS[wrIdx][1];
+  $("wrGrade").hidden = !sampleFn; $("wrStatus").hidden = !!sampleFn; if (!sampleFn) $("wrStatus").textContent = "添削機能はClaudeアプリ内で開くと使えます。";
+  renderWrHistory();
+}
+$("wrAnother").addEventListener("click", () => { profile.wrOffset = (profile.wrOffset || 0) + 1; saveProfile(); renderWrite(); $("wrResult").hidden = true; });
+$("wrGrade").addEventListener("click", async () => {
+  const ans = $("wrInput").value.trim(); if (ans.length < 10) return toast("もう少し書いてから添削しましょう");
+  const btn = $("wrGrade"); btn.disabled = true; $("wrStatus").hidden = false; $("wrStatus").textContent = "添削中... (10〜30秒)"; $("wrResult").hidden = true;
+  const prompt = "あなたはTOEIC満点のビジネス英語コーチです。日本人学習者(目標TOEIC900点、米国企業と日常的に仕事をする)が書いた英文を添削してください。\n\nお題: " + PROMPTS[wrIdx][0] + "\n\n学習者の英文:\n" + ans.slice(0, 3000)
+    + "\n\nJSONオブジェクトのみで返答してください(他の文章は不要)。形式:\n{\"score\": 0から100の整数(文法・語彙・自然さ・目的達成度の総合), \"corrected\": \"学習者の文を活かしつつ自然で簡潔なビジネス英語に直した全文\", \"issues\": [{\"type\": \"文法|語彙|語調|構成\", \"ja\": \"日本語で短い指摘(元の表現→直した表現)\"}], \"natural\": [\"アメリカ人ビジネスパーソンならこう書くという別案(1〜2文)\", \"もう1案\"], \"tip\": \"TOEICやビジネスに効く一言アドバイス(日本語)\"}";
+  try {
+    const r = await sampleFn.json(prompt, { cache: false });
+    const score = Math.max(0, Math.min(100, Number(r.score) || 0));
+    $("wrScore").textContent = score; $("wrCorrected").textContent = String(r.corrected || "");
+    $("wrIssues").innerHTML = (Array.isArray(r.issues) ? r.issues : []).map((i) => "<li><b>" + esc(i.type) + "</b> " + esc(i.ja) + "</li>").join("") || "<li>大きな問題はありません。</li>";
+    $("wrNatural").innerHTML = (Array.isArray(r.natural) ? r.natural : []).map((s) => '<div class="phrase">' + esc(s) + "</div>").join("");
+    $("wrTip").textContent = String(r.tip || ""); $("wrResult").hidden = false; $("wrStatus").hidden = true;
+    const d = day(); d.wc++; d.ws += score; d.menu.write = true; addXp(XP.write); saveDay();
+    const rec = { date: today, ts: Date.now(), prompt: PROMPTS[wrIdx][0], answer: ans, score, corrected: String(r.corrected || ""), issues: (Array.isArray(r.issues) ? r.issues : []).slice(0, 8) };
+    writings.unshift(rec); writings = writings.slice(0, 10);
+    if (db) { try { await db.collection("writing").doc("w" + rec.ts).set(rec); } catch (e) { toast("履歴の保存に失敗しました"); } }
+    renderWrHistory();
+  } catch (e) {
+    const code = e && e.code; $("wrStatus").textContent = code === "not_granted" ? "Claudeの利用が許可されていないため添削できません。" : code === "rate_limited" ? "利用上限です。しばらくしてからもう一度。" : "添削に失敗しました。もう一度試してください。";
+  } finally { btn.disabled = false; }
+});
+function renderWrHistory() {
+  $("wrHistory").innerHTML = writings.length ? writings.slice(0, 5).map((w) => '<div class="item"><div class="row"><span class="prog">' + esc(w.date) + '</span><span class="grow"></span><span class="score">' + w.score + '点</span></div><div class="muted">' + esc(w.prompt) + '</div><div class="en">' + esc(w.corrected) + '</div></div>').join("") : '<div class="muted">まだありません。</div>';
+}
+
+/* ---------- EXPR ---------- */
+const THEMES = ["会議で反論する", "進捗を催促する", "依頼を断る", "価格・条件の交渉", "ランチの雑談", "依頼・お願い", "問題発生時の報告", "提案を通す", "意見をはっきり言う", "相手の意図を確認する", "褒める・感謝する", "締め切りを守らせる", "会議を仕切る", "メールの書き出しと締め"];
+function renderExpr() {
+  const theme = THEMES[Math.floor(Date.now() / 86400000) % THEMES.length];
+  $("exTheme").textContent = "テーマ: " + theme; $("exDate").textContent = today.slice(5).replace("-", "/");
+  const has = exprDoc && exprDoc.date === today && Array.isArray(exprDoc.items);
+  $("exEmpty").hidden = has; $("exGen").hidden = has || !sampleFn; $("exList").hidden = !has; $("exDone").hidden = !has || !!day().menu.expr;
+  $("exStatus").hidden = !!sampleFn || has; if (!sampleFn && !has) $("exStatus").textContent = "表現の生成はClaudeアプリ内で開くと使えます。";
+  if (has) $("exList").innerHTML = exprDoc.items.map((it, i) => '<div class="item"><div class="phrase">' + esc(it.en) + '</div><div class="ja">' + esc(it.ja) + '</div><div class="muted">' + esc(it.when) + '</div><div class="en muted">' + esc(it.example) + '</div><div><button class="btn small" data-say="' + i + '">読み上げ</button></div></div>').join("");
+  renderYt();
+}
+$("exList").addEventListener("click", (ev) => { const b = ev.target.closest("[data-say]"); if (b && exprDoc) speak(exprDoc.items[Number(b.dataset.say)].example || exprDoc.items[Number(b.dataset.say)].en); });
+$("exGen").addEventListener("click", async () => {
+  const theme = THEMES[Math.floor(Date.now() / 86400000) % THEMES.length];
+  $("exGen").disabled = true; $("exStatus").hidden = false; $("exStatus").textContent = "作成中... (10〜30秒)";
+  const recent = Object.values(days).length ? "" : "";
+  const prompt = "日本人ビジネスパーソン(TOEIC900を目指し、米国企業の同僚・顧客と英語で仕事をする)が『舐められない』ために使える英語表現を3つ選んでください。条件: (1) 日本人が言えそうで言えない、(2) 米国のオフィスで実際に頻出、(3) 丁寧すぎず率直だが失礼ではない、(4) 中学英語の直訳ではない。テーマ: " + theme + recent
+    + "\n\nJSON配列のみで返答(他の文章は不要): [{\"en\": \"表現(短く)\", \"ja\": \"意味とニュアンス(日本語)\", \"example\": \"会議やメールでの自然な例文(英語1文)\", \"when\": \"使う場面と注意点(日本語、短く)\"}]";
+  try {
+    const items = await sampleFn.json(prompt, { cache: false });
+    if (!Array.isArray(items) || !items.length) throw { code: "invalid_json" };
+    exprDoc = { date: today, theme, items: items.slice(0, 3).map((x) => ({ en: String(x.en || ""), ja: String(x.ja || ""), example: String(x.example || ""), when: String(x.when || "") })) };
+    if (db) { try { await db.doc("expr/" + today).set(exprDoc); } catch (e) { toast("保存に失敗しました"); } }
+    renderExpr();
+  } catch (e) {
+    const code = e && e.code; $("exStatus").textContent = code === "not_granted" ? "Claudeの利用が許可されていないため作成できません。" : "作成に失敗しました。もう一度試してください。";
+  } finally { $("exGen").disabled = false; }
+});
+$("exDone").addEventListener("click", () => { const d = day(); if (!d.menu.expr) { d.menu.expr = true; d.ex += 3; addXp(XP.expr); saveDay(); } $("exDone").hidden = true; toast("+" + XP.expr + " XP"); });
+
+/* ---------- EXPR: YouTube phrases (expr_yt.json) ---------- */
+let YT = [], YTBY = {}, ytDone = {}, ytToday = null;
+async function loadYt() {
+  try {
+    const r = await fetch("expr_yt.json", { cache: "no-store" }); if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    YT = (Array.isArray(j.items) ? j.items : []).filter((x) => x && x.en).map((x, i) => Object.assign({ id: "yt" + i }, x));
+    YTBY = {}; YT.forEach((x) => { YTBY[x.id] = x; });
+  } catch (e) { YT = []; YTBY = {}; }
+}
+function seededShuffle(arr, seed) {
+  const a = [...arr]; let s = (seed >>> 0) || 1;
+  const rnd = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function ytPick(n) {
+  const used = new Set(ytToday ? ytToday.ids : []);
+  const left = YT.filter((x) => !ytDone[x.id] && !used.has(x.id));
+  const seed = Number(today.replace(/-/g, "")) * 31 + used.size * 7919;
+  return seededShuffle(left, seed).slice(0, n).map((x) => x.id);
+}
+const saveYtDone = () => save("ytexpr/done", { map: ytDone });
+function renderYt() {
+  const doneN = YT.filter((x) => ytDone[x.id]).length;
+  $("ytProg").textContent = YT.length ? "覚えた " + doneN + " / " + YT.length : "";
+  if (!YT.length) { $("ytStatus").hidden = false; $("ytStatus").textContent = "フレーズ一覧(expr_yt.json)を読み込めませんでした。"; $("ytList").hidden = true; $("ytMore").hidden = true; return; }
+  if (!ytToday || ytToday.date !== today || !Array.isArray(ytToday.ids)) {
+    ytToday = { date: today, ids: ytPick(3) };
+    if (ytToday.ids.length) save("ytexpr/" + today, ytToday);
+  }
+  const ids = ytToday.ids.filter((id) => YTBY[id]);
+  if (!ids.length) { $("ytStatus").hidden = false; $("ytStatus").textContent = "全部覚えました。新しい動画を見たら追加します。"; $("ytList").hidden = true; $("ytMore").hidden = true; return; }
+  $("ytStatus").hidden = true; $("ytList").hidden = false;
+  $("ytList").innerHTML = ids.map((id) => {
+    const it = YTBY[id]; const done = !!ytDone[id];
+    return '<div class="item" data-yt="' + esc(id) + '"' + (done ? ' style="opacity:.55"' : "") + '><div class="phrase">' + esc(it.en) + '</div><div class="ja">' + esc(it.ja) + '</div>'
+      + (it.ex && it.ex !== it.en ? '<div class="en muted">' + esc(it.ex) + '</div>' : "")
+      + '<div class="muted" style="font-size:12px">出典: <a href="' + esc(it.url) + '" target="_blank" rel="noopener">' + esc(it.source) + '</a></div>'
+      + '<div class="row"><button class="btn small" data-ysay="' + esc(id) + '">読み上げ</button><button class="btn small' + (done ? "" : " primary") + '" data-ydone="' + esc(id) + '"' + (done ? " disabled" : "") + '>' + (done ? "✓ 覚えた" : "覚えた") + '</button></div></div>';
+  }).join("");
+  const allDone = ids.every((id) => ytDone[id]);
+  $("ytMore").hidden = !allDone || YT.filter((x) => !ytDone[x.id] && !ytToday.ids.includes(x.id)).length === 0;
+}
+$("ytList").addEventListener("click", (ev) => {
+  const s = ev.target.closest("[data-ysay]"); if (s) { const it = YTBY[s.dataset.ysay]; if (it) speak(it.ex && it.ex.length > it.en.length ? it.en + ". " + it.ex : it.en); return; }
+  const b = ev.target.closest("[data-ydone]"); if (!b) return;
+  const id = b.dataset.ydone; if (!YTBY[id] || ytDone[id]) return;
+  ytDone[id] = today; saveYtDone();
+  const d = day(); d.ex += 1;
+  const allDone = ytToday.ids.every((x) => ytDone[x] || !YTBY[x]);
+  if (allDone && !d.menu.expr) { d.menu.expr = true; addXp(XP.expr); toast("3件完了 +" + XP.expr + " XP"); } else toast("覚えた! (" + ytToday.ids.filter((x) => ytDone[x]).length + "/" + ytToday.ids.length + ")");
+  saveDay(); renderYt();
+});
+$("ytMore").addEventListener("click", () => { const more = ytPick(3); if (!more.length) return; ytToday.ids = ytToday.ids.concat(more); save("ytexpr/" + today, ytToday); renderYt(); });
+
+/* ---------- PRON (external page; result arrives as #pronNN) ---------- */
+function pronDays() { return Object.values(days).filter((d) => d.pron != null).sort((x, y) => y.date.localeCompare(x.date)); }
+function pronAvg() { const l = pronDays().slice(0, 7); return l.length ? l.reduce((a, d) => a + d.pron, 0) / l.length : null; }
+function renderPron() {
+  $("prOpen").href = PRON_URL;
+  const d = day();
+  $("prToday").hidden = d.pron == null;
+  if (d.pron != null) $("prToday").textContent = "今日の一致率 " + d.pron + "%。" + (d.menu.pron ? "完了済み (+" + XP.pron + " XP)。" : "") + "もう一度やると、高い方の点が残ります。";
+  const l = pronDays().slice(0, 7);
+  $("prHistory").innerHTML = l.length ? l.map((x) => '<div class="skill"><span>' + esc(x.date.slice(5).replace("-", "/")) + '</span><div class="bar"><i style="width:' + Math.round(x.pron) + '%"></i></div><span class="v">' + Math.round(x.pron) + '%</span></div>').join("") : '<div class="muted">まだありません。</div>';
+}
+function applyPronHash() {
+  const m = /^#pron(\d{1,3})$/.exec(location.hash || ""); if (!m) return false;
+  const score = Math.max(0, Math.min(100, Number(m[1])));
+  const d = day(); const first = !d.menu.pron;
+  d.pron = d.pron == null ? score : Math.max(d.pron, score); d.menu.pron = true;
+  if (first) addXp(XP.pron);
+  saveDay();
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  toast(first ? "発音 " + score + "% を記録。+" + XP.pron + " XP" : "発音 " + score + "% を記録");
+  return true;
+}
+window.addEventListener("hashchange", () => { if (applyPronHash()) go("home"); });
+
+/* ---------- PLACEMENT TEST ---------- */
+let tq = [], tIdx = 0, tRes = {}, tl = [], tlIdx = 0, tlPlays = 0, tlSum = 0;
+$("tsGo").addEventListener("click", () => {
+  unlockAudio();
+  tq = []; tRes = {};
+  for (const lv of MAIN_LV) {
+    const pool = WORDS.filter((w) => w.lv === lv && w.ja); const picks = shuffle([...pool]).slice(0, 10);
+    for (const w of picks) { const ds = shuffle(pool.filter((x) => x.id !== w.id && x.ja !== w.ja)).slice(0, 3).map((x) => x.ja); tq.push({ w, choices: shuffle([w.ja, ...ds]) }); }
+    tRes[lv] = { n: 0, ok: 0 };
+  }
+  tq = shuffle(tq); tIdx = 0;
+  $("tsIntro").hidden = true; $("tsVocab").hidden = false; showTs();
+});
+function showTs() {
+  if (tIdx >= tq.length) return startTsListen();
+  const q = tq[tIdx]; $("tsProg").textContent = (tIdx + 1) + " / " + tq.length; $("tsWord").textContent = q.w.w;
+  $("tsChoices").innerHTML = q.choices.map((c) => '<button type="button">' + esc(c) + "</button>").join("");
+}
+$("tsChoices").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button"); if (!b || b.disabled) return;
+  const q = tq[tIdx]; const ok = b.textContent === q.w.ja; tRes[q.w.lv].n++; if (ok) tRes[q.w.lv].ok++;
+  [...$("tsChoices").children].forEach((x) => { x.disabled = true; if (x.textContent === q.w.ja) x.classList.add("ok"); else if (x === b) x.classList.add("ng"); });
+  setTimeout(() => { tIdx++; showTs(); }, ok ? 350 : 900);
+});
+function startTsListen() {
+  tl = [...pickPhrases(2, ["600"]), ...pickPhrases(2, ["730"]), ...pickPhrases(2, ["860"])]; tlIdx = 0; tlSum = 0;
+  $("tsVocab").hidden = true;
+  if (!tl.length) return finishTs(0);
+  $("tsListen").hidden = false; showTsListen();
+}
+function showTsListen() {
+  if (tlIdx >= tl.length) return finishTs(tlSum / tl.length);
+  tlPlays = 0; $("tsLProg").textContent = (tlIdx + 1) + " / " + tl.length; $("tsInput").value = ""; $("tsPlay").disabled = false;
+}
+$("tsPlay").addEventListener("click", () => { if (tlPlays >= 2) return; tlPlays++; playPhrase(tl[tlIdx], 1); if (tlPlays >= 2) $("tsPlay").disabled = true; });
+$("tsCheck").addEventListener("click", () => { tlSum += diffWords(tl[tlIdx].ph, $("tsInput").value).score; tlIdx++; showTsListen(); });
+function finishTs(l) {
+  $("tsListen").hidden = true; $("tsResult").hidden = false;
+  const a = {}; for (const lv of MAIN_LV) a[lv] = tRes[lv].n ? tRes[lv].ok / tRes[lv].n : 0;
+  profile.placement = { date: today, a, l: Math.round(l * 100) / 100 }; saveProfile();
+  const est = estimate();
+  $("tsOut").innerHTML = '<div class="row"><span class="big num">' + est + '<small>推定TOEIC ±40</small></span></div>'
+    + MAIN_LV.map((lv) => '<div class="skill"><span>' + LV_LABEL[lv] + '</span><div class="bar"><i style="width:' + Math.round(a[lv] * 100) + '%"></i></div><span class="v">' + tRes[lv].ok + '/' + tRes[lv].n + '</span></div>').join("")
+    + '<div class="skill"><span>聞き取り</span><div class="bar"><i style="width:' + Math.round(l * 100) + '%"></i></div><span class="v">' + Math.round(l * 100) + '%</span></div>'
+    + '<div class="note" style="margin-top:8px">' + (est >= 860 ? "語彙は900圏内。リスニングの精度と表現の幅で差がつく段階です。" : est >= 730 ? "730点レベルの語彙を固めつつ、860点レベルを毎日15語ずつ積むと3か月で見える景色が変わります。" : "まず600点レベル400語を2週間で一周。毎日の単語+ディクテーションを最優先に。") + "</div>";
+}
+
+/* ---------- boot ---------- */
+async function loadWords() {
+  try {
+    const r = await fetch("words.json", { cache: "no-store" }); if (!r.ok) throw new Error(r.status);
+    const j = await r.json(); WORDS = j.words || []; FILES = j.files || {}; CHAPTERS = j.chapters || {};
+    for (const w of WORDS) BYID[w.id] = w;
+  } catch (e) { $("dataBanner").hidden = false; }
+}
+async function loadState() {
+  db = await use("db");
+  if (!db) { $("dbBanner").hidden = false; return; }
+  try {
+    const p = await db.doc("profile/me").get(); if (p.exists) profile = Object.assign(profile, p.data());
+    const lvDocs = await Promise.all(["600", "730", "860", "990", "sup", "basic"].map((lv) => db.doc("srs/" + lv).get()));
+    lvDocs.forEach((s, i) => { if (s.exists) srs[["600", "730", "860", "990", "sup", "basic"][i]] = clone(s.data()); });
+    const ds = await db.collection("days").where("date", ">=", addDays(today, -60)).get();
+    ds.docs.forEach((d) => { days[d.id] = clone(d.data()); });
+    const ws = await db.collection("writing").orderBy("ts", "desc").limit(10).get();
+    writings = ws.docs.map((d) => d.data());
+    const ex = await db.doc("expr/" + today).get(); if (ex.exists) exprDoc = clone(ex.data());
+    const yd = await db.doc("ytexpr/done").get(); if (yd.exists) ytDone = clone((yd.data() || {}).map || {});
+    const yt = await db.doc("ytexpr/" + today).get(); if (yt.exists) ytToday = clone(yt.data());
+  } catch (e) { toast("読み込みに失敗しました (" + (e && e.code || "?") + ")"); }
+}
+(async () => {
+  renderHome();
+  await Promise.all([loadWords(), loadYt()]);
+  renderHome();
+  await loadState();
+  applyPronHash();
+  sampleFn = await use("sample");
+  renderHome();
+  if ("speechSynthesis" in window) speechSynthesis.getVoices();
+})();
+})();
+</script>

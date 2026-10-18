@@ -1,0 +1,9 @@
+# work data and scripts stay local
+data/
+scripts/
+__pycache__/
+*.log
+*.err
+.claude/
+Thumbs.db
+desktop.ini
