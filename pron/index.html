@@ -73,6 +73,7 @@ h3 { font-size: 13px; margin: 0; color: var(--ink-2); font-weight: 700; letter-s
 .btn.block { width: 100%; }
 .btn.small { min-height: 36px; padding: 6px 12px; font-size: 13px; border-radius: 999px; }
 .btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+.btn.ghost { background: var(--bg); border-color: transparent; color: var(--gold-ink); }
 .iconcap { width: 64px; height: 64px; border-radius: 50%; background: var(--gold-soft); color: var(--gold-ink); display: grid; place-items: center; margin: 0 auto; }
 .iconcap svg.i { width: 30px; height: 30px; }
 .pill { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; letter-spacing: .04em; }
@@ -145,7 +146,7 @@ h3 { font-size: 13px; margin: 0; color: var(--ink-2); font-weight: 700; letter-s
 </svg>
 <header class="top">
   <div class="brand">発音<small>TOEIC900 道場</small></div>
-  <div class="hstats"><span>通算 <b id="hdDone" class="num">0</b> フレーズ</span></div>
+  <div class="row" style="gap:8px;flex-wrap:nowrap"><div class="hstats"><span>通算 <b id="hdDone" class="num">0</b> フレーズ</span></div><button id="hdDojo" class="btn small ghost" type="button"><svg class="i"><use href="#i-back"/></svg>道場へ</button></div>
 </header>
 
 <main>
@@ -197,6 +198,7 @@ h3 { font-size: 13px; margin: 0; color: var(--ink-2); font-weight: 700; letter-s
       <div class="muted" id="itAdvice"></div>
     </div>
     <button class="btn primary block" id="itNext" type="button" disabled>次へ</button>
+    <button class="btn small ghost" id="itQuit" type="button"><svg class="i"><use href="#i-back"/></svg>中断して道場へ</button>
   </section>
 
   <!-- DONE -->
@@ -506,6 +508,11 @@ function beginFromTap() {
   if (!SIM && srOK) openMic().then((ok) => { if (!ok) toast("マイクが使えません (" + micErr + ")。Safariの設定でマイクを許可してください"); });
   startSession();
 }
+/* Back to the dojo without a result hash. A script-driven navigation stays in Safari (an anchor tap is a universal link
+   that opens the Claude app). Quitting mid-session leaves st.pos untouched, so the same 10 phrases come up next time. */
+function gotoDojo() { stopAudio(); stopRec(); closeMic(); location.href = DOJO; }
+$("hdDojo").addEventListener("click", gotoDojo);
+$("itQuit").addEventListener("click", gotoDojo);
 $("stGo").addEventListener("click", beginFromTap);
 $("dnAgain").addEventListener("click", beginFromTap);
 document.addEventListener("visibilitychange", () => { if (document.hidden) { stopMeter(); } });

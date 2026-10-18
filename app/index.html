@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>TOEIC900 道場</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
@@ -182,6 +183,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
   <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16z"/><path d="M13 7l4 4"/></symbol>
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H6a2 2 0 0 1-2-2z"/><path d="M8 9h8M8 12.5h5"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21M9 21h6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
   <symbol id="i-open" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></symbol>
 </svg>
 
@@ -248,7 +250,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
     <div class="muted">カードの表で意味を思い出し、裏で答え合わせ。音声は本の収録音声です。イヤホン推奨。</div>
   </div>
   <div id="vocabCard" class="card focus" hidden>
-    <div class="row"><span id="vcLv" class="pill lv"></span><span id="vcNew" class="pill" hidden>NEW</span><span class="grow"></span><span id="vcProg" class="prog"></span></div>
+    <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button><span id="vcLv" class="pill lv"></span><span id="vcNew" class="pill" hidden>NEW</span><span class="grow"></span><span id="vcProg" class="prog"></span></div>
     <div class="bar" id="vcBar"><i style="width:0%"></i></div>
     <div class="word" id="vcWord"></div>
     <div><button class="playbtn sec" id="vcPlayWord" type="button" aria-label="単語を再生"><svg class="i"><use href="#i-play"/></svg></button></div>
@@ -282,7 +284,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
     <button id="listenGo" class="btn primary block">開始</button>
   </div>
   <div id="listenItem" class="card focus" hidden>
-    <div class="row"><span id="liProg" class="prog"></span><span class="grow"></span><span id="liPlays" class="prog"></span></div>
+    <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button><span id="liProg" class="prog"></span><span class="grow"></span><span id="liPlays" class="prog"></span></div>
     <div class="steps" id="liBar"></div>
     <div><button class="playbtn" id="liPlay" type="button" aria-label="再生"><svg class="i"><use href="#i-play"/></svg></button><div class="muted">タップして聞く</div></div>
     <div class="speeds"><button data-rate="1" class="on">1.0x</button><button data-rate="0.75">0.75x</button><button data-rate="1.25">1.25x</button></div>
@@ -357,12 +359,12 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
     <button class="btn block" data-go="home">あとで</button>
   </div>
   <div id="tsVocab" class="card focus" hidden>
-    <div class="row"><span class="pill">語彙</span><span class="grow"></span><span id="tsProg" class="prog"></span></div>
+    <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button><span class="pill">語彙</span><span class="grow"></span><span id="tsProg" class="prog"></span></div>
     <div class="word" id="tsWord"></div>
     <div class="choices" id="tsChoices"></div>
   </div>
   <div id="tsListen" class="card focus" hidden>
-    <div class="row"><span class="pill">ディクテーション</span><span class="grow"></span><span id="tsLProg" class="prog"></span></div>
+    <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button><span class="pill">ディクテーション</span><span class="grow"></span><span id="tsLProg" class="prog"></span></div>
     <div><button class="playbtn" id="tsPlay" type="button" aria-label="再生"><svg class="i"><use href="#i-play"/></svg></button><div class="muted">再生は2回まで</div></div>
     <textarea id="tsInput" placeholder="聞こえた英文を入力" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
     <button id="tsCheck" class="btn primary block">決定</button>
@@ -377,6 +379,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
 <!-- ================= PRON ================= -->
 <section id="v-pron" class="view" hidden>
   <div class="card focus">
+    <div class="row"><button class="btn small ghost" data-go="home" type="button"><svg class="i"><use href="#i-back"/></svg>ホームへ</button></div>
     <div style="width:64px;height:64px;border-radius:50%;background:var(--gold-soft);color:var(--gold-ink);display:grid;place-items:center"><svg class="i" style="width:30px;height:30px"><use href="#i-mic"/></svg></div>
     <h2>発音 (10フレーズ)</h2>
     <div class="muted">マイクはこのアプリの中で使えないため、発音だけは Safari の別ページで行います。お手本を聞いて同じように言うと、iPhoneが聞き取った英文とお手本の単語一致率が出ます。</div>
@@ -499,7 +502,7 @@ function go(v) {
   VIEWS.forEach((n) => { $("v-" + n).hidden = n !== v; });
   document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.go === v));
   window.scrollTo(0, 0);
-  if (v === "home") renderHome();
+  if (v === "home") { renderHome(); $("listenStart").hidden = false; $("listenItem").hidden = true; $("listenDone").hidden = true; $("tsIntro").hidden = false; ["tsVocab", "tsListen", "tsResult"].forEach((id) => { $(id).hidden = true; }); }
   if (v === "vocab") renderVocabStart();
   if (v === "write") renderWrite();
   if (v === "expr") renderExpr();
