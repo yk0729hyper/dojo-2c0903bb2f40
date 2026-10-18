@@ -521,24 +521,29 @@ function unlockAudio() { try { player.muted = false; } catch (e) {} return null;
    (card shown), where a refusal is expected and should not nag. */
 let wantRate = 1;
 player.addEventListener("loadedmetadata", () => { player.playbackRate = wantRate; });
+player.addEventListener("playing", () => { player.playbackRate = wantRate; });
+/* Whole chapter files are pulled into memory once (blob URL) so clips never wait on the network mid-phrase:
+   a streamed range request on mobile data could stall after the first second, which sounded like the clip
+   stopping, and its late start swallowed the first syllable. Until a file is in, the network URL is used. */
+const mediaCache = new Map(), mediaPending = new Map();
+function mediaUrl(f) { return FILES[f] || (/[\/.]/.test(String(f)) ? String(f) : null); }
+function prefetchMedia(f) {
+  const url = mediaUrl(f); if (!url || mediaCache.has(f) || mediaPending.has(f)) return;
+  const p = fetch(url).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(r.status)))).then((b) => { mediaCache.set(f, URL.createObjectURL(b)); }).catch(() => {}).then(() => { mediaPending.delete(f); });
+  mediaPending.set(f, p);
+}
+const LEAD = 0.15; /* the clip boundaries sit at the silence threshold; the first consonant starts a little before it */
 function playClip(f, s, e, rate = 1, quiet = false) {
-  const url = FILES[f] || (/[\/.]/.test(String(f)) ? String(f) : null);
+  const url = mediaUrl(f);
   if (!url) return false;
   clearTimeout(stopTimer); stopAt = null;
   try {
     player.pause();
-    const end = e + 0.12; wantRate = rate;
-    player.src = url + "#t=" + Number(s).toFixed(2) + "," + end.toFixed(2); curFile = f;
+    const start = Math.max(0, Number(s) - LEAD), end = e + 0.12; wantRate = rate;
+    if (!mediaCache.has(f)) prefetchMedia(f);
+    player.src = (mediaCache.get(f) || url) + "#t=" + start.toFixed(2) + "," + end.toFixed(2); curFile = f;
     player.playbackRate = rate;
-    stopAt = end;
-    const arm = () => {
-      clearTimeout(stopTimer); if (stopAt == null) return;
-      player.playbackRate = wantRate;
-      if (player.currentTime < s - 1.5) { try { player.currentTime = s; } catch (err) {} }
-      const rem = Math.max(0.05, (stopAt - player.currentTime) / (player.playbackRate || 1));
-      stopTimer = setTimeout(() => { if (stopAt != null) { player.pause(); stopAt = null; } }, rem * 1000 + 80);
-    };
-    player.addEventListener("playing", arm, { once: true });
+    stopAt = end; /* the end is enforced by the media fragment and by the timeupdate check above, never by a wall clock */
     const p = player.play();
     if (p && p.catch) p.catch(() => { if (!quiet) toast("再生できませんでした。再生ボタンをもう一度タップしてください"); });
     return true;
@@ -725,6 +730,7 @@ $("vocabMode").addEventListener("change", () => { profile.vocabMode = $("vocabMo
 $("vocabGo").addEventListener("click", () => {
   unlockAudio();
   const plan = vocabPlan(); vq = [...plan.due, ...plan.fresh]; vIdx = 0; vStats = { n: 0, ok: 0, fresh: 0 }; vAgain = {};
+  [...new Set(vq.slice(0, 40).map((id) => BYID[id] && BYID[id].f).filter(Boolean))].slice(0, 4).forEach(prefetchMedia);
   $("vocabStart").hidden = true; $("vocabCard").hidden = false; showCard();
 });
 /* Mark the headword inside its example sentence (inflections too: match on the stem, i.e. the word minus its last two letters). */
@@ -856,6 +862,7 @@ $("listenGo").addEventListener("click", () => {
   unlockAudio();
   if ($("listenMode").value === "phrase") return startPhraseMode();
   dcur = pickDialogue(); if (!dcur) return toast("会話データを読み込めませんでした");
+  prefetchMedia(dcur.file);
   dq = 0; dStats = { q: 0, qc: 0, dict: 0 }; dPlays = 0; dRate = 1; ddRate = 1; ddPlays = 0;
   $("listenStart").hidden = true; $("dlgCard").hidden = false;
   $("dlgTitle").textContent = dcur.title; $("dlgSit").textContent = dcur.situation; $("dlgDur").textContent = Math.round(dcur.dur) + "秒"; $("dlgPlays").textContent = "";
@@ -919,6 +926,7 @@ $("dsDone").addEventListener("click", () => {
 let lq = [], lIdx = 0, lRate = 1, lPlays = 0, lStats = { n: 0, sum: 0 };
 function startPhraseMode() {
   lq = pickPhrases(Number($("listenCount").value), null); if (!lq.length) return toast("音声データがまだありません");
+  [...new Set(lq.map((w) => w.f))].slice(0, 6).forEach(prefetchMedia);
   lIdx = 0; lStats = { n: 0, sum: 0 }; $("listenStart").hidden = true; $("listenItem").hidden = false; $("listenDone").hidden = true; showListen();
 }
 function showListen() {
@@ -1202,6 +1210,9 @@ $("tsGo").addEventListener("click", () => {
     tRes[lv] = { n: 0, ok: 0 };
   }
   tq = shuffle(tq); tIdx = 0;
+  /* the dictation items are chosen now so their chapter files can load during the vocabulary part */
+  tl = [...pickPhrases(2, ["600"]), ...pickPhrases(2, ["730"]), ...pickPhrases(2, ["860"])];
+  [...new Set(tl.map((w) => w.f))].forEach(prefetchMedia);
   $("tsIntro").hidden = true; $("tsVocab").hidden = false; showTs();
 });
 function showTs() {
@@ -1217,7 +1228,8 @@ $("tsChoices").addEventListener("click", (ev) => {
   setTimeout(() => { tIdx++; showTs(); }, ok ? 350 : 900);
 });
 function startTsListen() {
-  tl = [...pickPhrases(2, ["600"]), ...pickPhrases(2, ["730"]), ...pickPhrases(2, ["860"])]; tlIdx = 0; tlSum = 0;
+  if (!tl.length) tl = [...pickPhrases(2, ["600"]), ...pickPhrases(2, ["730"]), ...pickPhrases(2, ["860"])];
+  tlIdx = 0; tlSum = 0;
   $("tsVocab").hidden = true;
   if (!tl.length) return finishTs(0);
   $("tsListen").hidden = false; showTsListen();
