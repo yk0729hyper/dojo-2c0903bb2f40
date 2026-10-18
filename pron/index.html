@@ -11,22 +11,28 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
 :root {
+  /* Same tokens as the dojo (app/index.html). One task per screen; one big round record button in the middle of a
+     transport row (お手本 / 録音 / スキップ); a 10-step bar for the session; a check-mark celebration at the end. */
   --bg: #F2F3F5; --surface: #FFFFFF; --ink: #1C2230; --ink-2: #5B6473; --line: #DCE0E7;
   --gold: #B8901C; --gold-ink: #7E6110; --gold-soft: #F6ECCB;
   --good: #2E7D4F; --good-soft: #DDF0E4; --bad: #B23A3A; --bad-soft: #F6DEDE; --warn: #B8690F;
+  --shadow: 0 1px 2px rgba(28,34,48,.05), 0 8px 22px rgba(28,34,48,.07);
   --font-ui: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
   --font-en: "Newsreader", "Georgia", "Times New Roman", serif;
+  --r: 18px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #12161E; --surface: #1B212C; --ink: #E9ECF2; --ink-2: #9AA3B2; --line: #2B3342;
   --gold: #D9B341; --gold-ink: #E6C65C; --gold-soft: #3A3217;
   --good: #5FBF85; --good-soft: #1E3A2A; --bad: #E07070; --bad-soft: #42232A; --warn: #E0A04A;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
   color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --bg: #12161E; --surface: #1B212C; --ink: #E9ECF2; --ink-2: #9AA3B2; --line: #2B3342;
   --gold: #D9B341; --gold-ink: #E6C65C; --gold-soft: #3A3217;
   --good: #5FBF85; --good-soft: #1E3A2A; --bad: #E07070; --bad-soft: #42232A; --warn: #E0A04A;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -37,75 +43,106 @@ button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 a { color: var(--gold-ink); }
+svg.i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 .top { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding-top: calc(10px + env(safe-area-inset-top, 0px)); padding-bottom: 10px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.brand { font-weight: 700; letter-spacing: .02em; }
+.brand { font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
 .brand small { color: var(--gold-ink); font-weight: 500; margin-left: 6px; font-size: 12px; }
-.hstats { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hstats { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; background: var(--bg); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
 .hstats b { color: var(--ink); font-weight: 700; }
 
 main { padding-block: 14px calc(env(safe-area-inset-bottom, 0px) + 28px);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 640px; margin: 0 auto;
   display: flex; flex-direction: column; gap: 14px; }
-h2 { font-size: 17px; margin: 0; font-weight: 700; text-wrap: balance; }
-h3 { font-size: 14px; margin: 0; color: var(--ink-2); font-weight: 500; letter-spacing: .04em; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+h2 { font-size: 18px; margin: 0; font-weight: 700; text-wrap: balance; }
+h3 { font-size: 13px; margin: 0; color: var(--ink-2); font-weight: 700; letter-spacing: .06em; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; box-shadow: var(--shadow); }
+.card.focus { align-items: center; text-align: center; padding-top: 22px; padding-bottom: 20px; gap: 14px; }
+.card.focus > * { width: 100%; }
+.card.focus > .donechk { width: 76px; }
+.card.focus > .iconcap { width: 64px; }
 .muted { color: var(--ink-2); font-size: 13px; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .grow { flex: 1; min-width: 0; }
 .num { font-variant-numeric: tabular-nums; }
-.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 14px; font-weight: 500; min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--ink); }
-.btn.primary { background: var(--gold); border-color: var(--gold); color: #1C1A10; font-weight: 700; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 10px 16px; font-weight: 600; min-height: 48px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink); }
+.btn.primary { background: var(--gold); border-color: var(--gold); color: #1C1A10; font-weight: 700; box-shadow: 0 6px 16px rgba(184,144,28,.28); }
 .btn.block { width: 100%; }
-.btn.small { min-height: 36px; padding: 6px 10px; font-size: 13px; }
-.btn:disabled { opacity: .5; cursor: default; }
-.pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; letter-spacing: .04em; }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: 13px; border-radius: 999px; }
+.btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
+.iconcap { width: 64px; height: 64px; border-radius: 50%; background: var(--gold-soft); color: var(--gold-ink); display: grid; place-items: center; margin: 0 auto; }
+.iconcap svg.i { width: 30px; height: 30px; }
+.pill { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; letter-spacing: .04em; }
 .pill.lv { background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); }
 .prog { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
-.bar > i { display: block; height: 100%; background: var(--gold); border-radius: 999px; }
+.bar > i { display: block; height: 100%; background: var(--gold); border-radius: 999px; transition: width .4s ease; }
 .bar.good > i { background: var(--good); }
-.phrase { font-family: var(--font-en); font-size: 24px; line-height: 1.35; text-wrap: balance; overflow-wrap: anywhere; }
+.steps { display: flex; gap: 4px; height: 6px; }
+.steps i { flex: 1; background: var(--line); border-radius: 3px; }
+.steps i.on { background: var(--gold); }
+.steps i.cur { background: var(--gold); opacity: .45; }
+.phrase { font-family: var(--font-en); font-size: 27px; line-height: 1.35; text-wrap: balance; overflow-wrap: anywhere; margin-top: 6px; }
 .phrase .ok { color: var(--good); }
 .phrase .ng { color: var(--bad); text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 3px; }
-.ja { font-size: 15px; font-weight: 500; }
+.ja { font-size: 15px; font-weight: 500; color: var(--ink-2); }
 .heard { font-family: var(--font-en); font-size: 17px; color: var(--ink-2); font-style: italic; }
-.big { font-size: 44px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.big { font-size: 46px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .big small { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 6px; letter-spacing: 0; }
-.score { font-weight: 700; color: var(--gold-ink); font-variant-numeric: tabular-nums; font-size: 22px; }
+.score { font-weight: 700; color: var(--gold-ink); font-variant-numeric: tabular-nums; font-size: 34px; line-height: 1; }
 .score.good { color: var(--good); } .score.bad { color: var(--bad); }
-.note { font-size: 13px; background: var(--gold-soft); color: var(--gold-ink); border-radius: 10px; padding: 8px 12px; }
-.banner { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.6; }
+.note { font-size: 13px; background: var(--gold-soft); color: var(--gold-ink); border-radius: 12px; padding: 10px 14px; text-align: left; }
+.banner { background: var(--bad-soft); color: var(--bad); border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.6; }
 .banner ol { margin: 6px 0 0; padding-left: 1.3em; }
-.ctrls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
-.bigbtn { border: 0; border-radius: 16px; min-height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-weight: 700; font-size: 15px; }
-.bigbtn small { font-weight: 400; font-size: 11px; opacity: .8; }
-.bigbtn .ico { font-size: 26px; line-height: 1; }
-.bigbtn.play { background: var(--gold-soft); color: var(--gold-ink); }
-.bigbtn.rec { background: var(--gold); color: #1C1A10; }
-.bigbtn.rec.live { background: var(--bad); color: #fff; animation: pulse 1.1s ease-in-out infinite; }
-.bigbtn:disabled { opacity: .45; cursor: default; animation: none; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(178,58,58,.45); } 50% { box-shadow: 0 0 0 12px rgba(178,58,58,0); } }
-.tries { display: flex; gap: 6px; }
+
+/* transport: お手本 (soft) / 録音 (big gold) / スキップ (outline) */
+.transport { display: flex; align-items: flex-start; justify-content: center; gap: 18px; padding: 6px 0 2px; }
+.bigbtn { border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; color: var(--ink); width: 92px; }
+.bigbtn small { font-weight: 400; font-size: 11px; color: var(--ink-2); line-height: 1.3; }
+.bigbtn .ico { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; transition: transform .12s ease; }
+.bigbtn:active .ico { transform: scale(.94); }
+.bigbtn .ico svg.i { width: 26px; height: 26px; }
+.bigbtn.play .ico { background: var(--gold-soft); color: var(--gold-ink); }
+.bigbtn.play .ico svg.i { fill: currentColor; }
+.bigbtn.skip .ico { background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); }
+.bigbtn.rec { margin-top: -10px; }
+.bigbtn.rec .ico { width: 92px; height: 92px; background: var(--gold); color: #1C1A10; box-shadow: 0 10px 24px rgba(184,144,28,.35); }
+.bigbtn.rec .ico svg.i { width: 40px; height: 40px; }
+.bigbtn.rec.live .ico { background: var(--bad); color: #fff; animation: pulse 1.1s ease-in-out infinite; }
+.bigbtn:disabled { opacity: .45; cursor: default; }
+.bigbtn:disabled .ico { animation: none; box-shadow: none; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(178,58,58,.45); } 50% { box-shadow: 0 0 0 14px rgba(178,58,58,0); } }
+.tries { display: inline-flex; gap: 6px; vertical-align: middle; }
 .tries i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: inline-block; }
 .tries i.on { background: var(--gold); }
+.result { display: flex; flex-direction: column; gap: 8px; background: var(--bg); border-radius: 14px; padding: 14px; text-align: left; }
 .list { display: flex; flex-direction: column; gap: 0; }
-.item { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; border-top: 1px solid var(--line); padding: 8px 0; }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; border-top: 1px solid var(--line); padding: 9px 0; text-align: left; }
 .item:first-child { border-top: 0; padding-top: 0; }
 .item .en { font-family: var(--font-en); font-size: 16px; }
 .item .v { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
 .hist { display: flex; gap: 6px; align-items: flex-end; height: 56px; }
 .hist i { flex: 1; background: var(--gold); border-radius: 4px 4px 0 0; min-height: 2px; display: block; }
 .hist i.none { background: var(--line); }
+.donechk { width: 76px; height: 76px; border-radius: 50%; background: var(--good); color: #fff; display: grid; place-items: center; margin: 2px auto 6px; animation: pop .55s cubic-bezier(.2, 1.5, .4, 1); }
+.donechk svg.i { width: 38px; height: 38px; stroke-width: 3; }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 9; max-width: 90vw; }
 #toast.show { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
+<svg hidden xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21M9 21h6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+</svg>
 <header class="top">
   <div class="brand">発音<small>TOEIC900 道場</small></div>
   <div class="hstats"><span>通算 <b id="hdDone" class="num">0</b> フレーズ</span></div>
@@ -124,9 +161,10 @@ h3 { font-size: 14px; margin: 0; color: var(--ink-2); font-weight: 500; letter-s
   <div id="noData" class="banner" hidden>単語データを読み込めませんでした。電波の良い場所で開き直してください。</div>
 
   <!-- START -->
-  <section id="vStart" class="card">
-    <h2>発音練習 (10フレーズ)</h2>
-    <div class="muted">金のフレーズの例文をネイティブ音声で聞き、同じように声に出して言います。iPhoneが聞き取った英文とお手本を比べ、単語の一致率を出します。600点レベルから順に、1日10フレーズ。</div>
+  <section id="vStart" class="card focus">
+    <div class="iconcap"><svg class="i"><use href="#i-mic"/></svg></div>
+    <h2>今日の発音 (10フレーズ)</h2>
+    <div class="muted">お手本を聞いて、同じように声に出す。iPhoneが聞き取った英文とお手本を比べ、単語の一致率を出します。</div>
     <div class="row"><span class="pill lv" id="stLv"></span><span class="grow"></span><span class="prog" id="stPos"></span></div>
     <div class="bar"><i id="stBar" style="width:0%"></i></div>
     <button id="stGo" class="btn primary block">開始</button>
@@ -140,37 +178,36 @@ h3 { font-size: 14px; margin: 0; color: var(--ink-2); font-weight: 500; letter-s
   </section>
 
   <!-- ITEM -->
-  <section id="vItem" class="card" hidden>
+  <section id="vItem" class="card focus" hidden>
     <div class="row"><span class="pill lv" id="itLv"></span><span class="grow"></span><span class="prog" id="itProg"></span></div>
+    <div class="steps" id="itSteps"></div>
     <div class="phrase" id="itPhrase"></div>
     <div class="ja" id="itJa"></div>
-    <div class="ctrls">
-      <button class="bigbtn play" id="itPlay" type="button"><span class="ico">▶</span>お手本<small>ネイティブ音声</small></button>
-      <button class="bigbtn rec" id="itRec" type="button"><span class="ico">●</span><span id="itRecT">録音</span><small id="itRecS">タップして話す</small></button>
+    <div class="transport">
+      <button class="bigbtn play" id="itPlay" type="button"><span class="ico"><svg class="i"><use href="#i-play"/></svg></span>お手本</button>
+      <button class="bigbtn rec" id="itRec" type="button"><span class="ico"><svg class="i"><use href="#i-mic"/></svg></span><span id="itRecT">録音</span><small id="itRecS">タップして話す</small></button>
+      <button class="bigbtn skip" id="itSkip" type="button"><span class="ico"><svg class="i"><use href="#i-next"/></svg></span>スキップ</button>
     </div>
-    <div class="row"><span class="muted">挑戦</span><span class="tries" id="itTries"></span><span class="grow"></span><span class="prog num" id="itMeter"></span></div>
+    <div class="row" style="justify-content:center"><span class="muted">挑戦</span><span class="tries" id="itTries"></span><span class="prog num" id="itMeter"></span></div>
     <div class="prog" id="itStatus"></div>
-    <div class="muted" id="itTrace" style="font-size:11px;overflow-wrap:anywhere" hidden></div>
-    <div id="itResult" hidden style="display:flex;flex-direction:column;gap:6px">
+    <div class="muted" id="itTrace" style="font-size:11px;overflow-wrap:anywhere;text-align:left" hidden></div>
+    <div id="itResult" class="result" hidden>
       <div class="row"><span class="score" id="itScore"></span><span class="grow"></span><span class="prog" id="itBest"></span></div>
       <div class="heard" id="itHeard"></div>
       <div class="muted" id="itAdvice"></div>
     </div>
-    <div class="row">
-      <button class="btn small" id="itSkip" type="button">スキップ</button>
-      <span class="grow"></span>
-      <button class="btn primary" id="itNext" type="button" disabled>次へ</button>
-    </div>
+    <button class="btn primary block" id="itNext" type="button" disabled>次へ</button>
   </section>
 
   <!-- DONE -->
-  <section id="vDone" class="card" hidden>
+  <section id="vDone" class="card focus" hidden>
+    <div class="donechk"><svg class="i"><use href="#i-check"/></svg></div>
     <h2>今日の発音、完了</h2>
-    <div class="row"><span class="big num"><span id="dnAvg">0</span>%<small>平均一致率</small></span></div>
+    <div><span class="big num"><span id="dnAvg">0</span>%<small>平均一致率</small></span></div>
     <div class="bar good"><i id="dnBar" style="width:0%"></i></div>
     <div class="note" id="dnNote"></div>
     <div class="list" id="dnList"></div>
-    <a id="dnBack" class="btn primary block" href="#">道場に戻る (完了を記録)</a>
+    <a id="dnBack" class="btn primary block" href="#"><svg class="i"><use href="#i-back"/></svg>道場に戻る (完了を記録)</a>
     <div class="muted">道場が開いたら、ホームの「発音」に ✓ と XP が付きます。Claude アプリが開いて ✓ が付かないときは、道場の「発音」画面で今日の一致率 <b id="dnCode" class="num"></b> を手入力してください。</div>
     <button class="btn block" id="dnAgain" type="button">もう10フレーズ</button>
   </section>
@@ -391,6 +428,7 @@ function showItem() {
   stopAudio(); stopRec();
   const w = q[idx]; tries = 0; best = null;
   $("itLv").textContent = LV_LABEL[w.lv] || w.lv; $("itProg").textContent = (idx + 1) + " / " + q.length;
+  $("itSteps").innerHTML = Array.from({ length: q.length }, (_, k) => '<i class="' + (k < idx ? "on" : k === idx ? "cur" : "") + '"></i>').join("");
   $("itPhrase").innerHTML = esc(w.ph); $("itJa").textContent = w.ja || "";
   $("itResult").hidden = true; $("itNext").disabled = true; $("itNext").textContent = idx + 1 >= q.length ? "結果を見る" : "次へ";
   $("itRec").disabled = !srOK; $("itRec").classList.remove("live"); $("itRecT").textContent = "録音"; $("itRecS").textContent = srOK ? "タップして話す" : "使用不可";

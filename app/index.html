@@ -3,24 +3,32 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
 :root {
-  /* Layout: one-column phone app. Fixed top bar (streak / XP), fixed bottom tab bar, one view at a time. */
+  /* Layout: one-column phone app. Sticky top bar (streak / XP), fixed bottom tab bar, one view at a time.
+     Visual model (2026-10-18): one task per screen, one big round play button, a gold "today" hero with the
+     streak and a 7-day row, step bars for progress, a check-mark celebration on completion. */
   --bg: #F2F3F5; --surface: #FFFFFF; --ink: #1C2230; --ink-2: #5B6473; --line: #DCE0E7;
   --gold: #B8901C; --gold-ink: #7E6110; --gold-soft: #F6ECCB;
   --good: #2E7D4F; --good-soft: #DDF0E4; --bad: #B23A3A; --bad-soft: #F6DEDE; --warn: #B8690F;
+  --hero: linear-gradient(135deg, #C59B24 0%, #8E6C12 100%); --hero-ink: #FFF8E1; --hero-dim: rgba(255,248,225,.78);
+  --shadow: 0 1px 2px rgba(28,34,48,.05), 0 8px 22px rgba(28,34,48,.07);
   --font-ui: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
   --font-en: "Newsreader", "Georgia", "Times New Roman", serif;
-  --tab-h: 58px;
+  --tab-h: 62px; --r: 18px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #12161E; --surface: #1B212C; --ink: #E9ECF2; --ink-2: #9AA3B2; --line: #2B3342;
   --gold: #D9B341; --gold-ink: #E6C65C; --gold-soft: #3A3217;
   --good: #5FBF85; --good-soft: #1E3A2A; --bad: #E07070; --bad-soft: #42232A; --warn: #E0A04A;
+  --hero: linear-gradient(135deg, #8E6C12 0%, #5B4409 100%); --hero-ink: #FFF3C4; --hero-dim: rgba(255,243,196,.72);
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
   color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --bg: #12161E; --surface: #1B212C; --ink: #E9ECF2; --ink-2: #9AA3B2; --line: #2B3342;
   --gold: #D9B341; --gold-ink: #E6C65C; --gold-soft: #3A3217;
   --good: #5FBF85; --good-soft: #1E3A2A; --bad: #E07070; --bad-soft: #42232A; --warn: #E0A04A;
+  --hero: linear-gradient(135deg, #8E6C12 0%, #5B4409 100%); --hero-ink: #FFF3C4; --hero-dim: rgba(255,243,196,.72);
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -28,69 +36,110 @@
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.55; -webkit-text-size-adjust: 100%; }
 button, input, textarea, select { font: inherit; color: inherit; }
-button { cursor: pointer; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+svg.i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.brand { font-weight: 700; letter-spacing: .02em; }
+.brand { font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+@media (max-width: 420px) { .brand small { display: none; } }
 .brand small { color: var(--gold-ink); font-weight: 500; margin-left: 6px; font-size: 12px; }
-.hstats { display: flex; gap: 10px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hstats { display: flex; gap: 6px; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hstats span { background: var(--bg); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
 .hstats b { color: var(--ink); font-weight: 700; }
 
 main { padding-block: 14px calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 20px);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 640px; margin: 0 auto; }
 .view { display: flex; flex-direction: column; gap: 14px; }
-h2 { font-size: 17px; margin: 0; font-weight: 700; text-wrap: balance; }
-h3 { font-size: 14px; margin: 0; color: var(--ink-2); font-weight: 500; letter-spacing: .04em; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+h2 { font-size: 18px; margin: 0; font-weight: 700; text-wrap: balance; }
+h3 { font-size: 13px; margin: 0; color: var(--ink-2); font-weight: 700; letter-spacing: .06em; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; box-shadow: var(--shadow); }
+.card.focus { align-items: center; text-align: center; padding-top: 22px; padding-bottom: 20px; gap: 14px; }
+.card.focus > * { width: 100%; }
+.card.focus > .donechk { width: 76px; }
 .muted { color: var(--ink-2); font-size: 13px; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .grow { flex: 1; min-width: 0; }
 .num { font-variant-numeric: tabular-nums; }
-.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 14px; font-weight: 500; min-height: 44px; }
-.btn.primary { background: var(--gold); border-color: var(--gold); color: #1C1A10; font-weight: 700; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 10px 16px; font-weight: 600; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink); text-decoration: none; }
+.btn.primary { background: var(--gold); border-color: var(--gold); color: #1C1A10; font-weight: 700; box-shadow: 0 6px 16px rgba(184,144,28,.28); }
 .btn.block { width: 100%; }
-.btn.small { min-height: 36px; padding: 6px 10px; font-size: 13px; }
-.btn:disabled { opacity: .5; cursor: default; }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: 13px; border-radius: 999px; }
+.btn.ghost { background: var(--bg); border-color: transparent; color: var(--gold-ink); }
+.btn:disabled { opacity: .5; cursor: default; box-shadow: none; }
 .btn.on { background: var(--gold-soft); border-color: var(--gold); }
-textarea, input[type="text"] { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); min-height: 44px; }
-textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+textarea, input[type="text"], input[type="number"] { width: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--bg); min-height: 48px; }
+textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16px; }
 .en { font-family: var(--font-en); }
-.word { font-family: var(--font-en); font-size: 38px; font-weight: 500; line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; }
-.phrase { font-family: var(--font-en); font-size: 20px; line-height: 1.4; }
+.word { font-family: var(--font-en); font-size: 42px; font-weight: 500; line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; margin-top: 4px; }
+.phrase { font-family: var(--font-en); font-size: 21px; line-height: 1.4; text-wrap: balance; }
+.phrase mark { background: none; color: var(--gold-ink); font-weight: 600; }
 .ja { font-size: 17px; font-weight: 500; }
-.pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; letter-spacing: .04em; }
+.pill { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; letter-spacing: .04em; }
 .pill.lv { background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); }
 .bar { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
-.bar > i { display: block; height: 100%; background: var(--gold); border-radius: 999px; min-width: 0; }
+.bar > i { display: block; height: 100%; background: var(--gold); border-radius: 999px; min-width: 0; transition: width .4s ease; }
 .bar.good > i { background: var(--good); }
+.steps { display: flex; gap: 4px; height: 6px; }
+.steps i { flex: 1; background: var(--line); border-radius: 3px; }
+.steps i.on { background: var(--gold); }
+.steps i.cur { background: var(--gold); opacity: .45; }
+
+/* home: hero (streak + week + today's ring) */
+.hero { background: var(--hero); color: var(--hero-ink); border-color: transparent; gap: 14px; }
+.hero .big { color: #fff; }
+.hero .big small { color: var(--hero-dim); }
+.hero .muted { color: var(--hero-dim); }
+.ring { position: relative; width: 78px; height: 78px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 7; }
+.ring .rbg { stroke: rgba(255,255,255,.22); }
+.ring .rfg { stroke: #fff; stroke-linecap: round; stroke-dasharray: 207.3; stroke-dashoffset: 207.3; transition: stroke-dashoffset .6s ease; }
+.ring .rv { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--hero-dim); font-variant-numeric: tabular-nums; }
+.ring .rv b { font-size: 18px; color: #fff; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.week div { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--hero-dim); }
+.week i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 700; color: #fff; }
+.week i.on { background: #fff; border-color: #fff; color: var(--gold-ink); }
+.week .today { color: #fff; font-weight: 700; }
+.week .today i { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+
 .menu { display: flex; flex-direction: column; gap: 0; }
-.menu button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 12px 2px; min-height: 56px; }
+.menu button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 12px 2px; min-height: 60px; }
 .menu button:first-child { border-top: 0; }
-.chk { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; flex: none; font-size: 13px; }
+.menu button.next { background: var(--gold-soft); border-top: 0; border-radius: 14px; padding: 12px; margin: 4px 0; }
+.menu button.next + button { border-top: 0; }
+.chk { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; flex: none; font-size: 13px; }
 .chk.done { background: var(--good); border-color: var(--good); color: #fff; }
+.menu .next .chk { border-color: var(--gold); }
 .menu .t { font-weight: 700; }
 .menu .s { font-size: 12px; color: var(--ink-2); }
 .menu .xp { margin-left: auto; font-size: 12px; color: var(--gold-ink); font-weight: 700; white-space: nowrap; }
-.big { font-size: 44px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.menu .go { margin-left: auto; background: var(--gold); color: #1C1A10; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.big { font-size: 46px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .big small { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 6px; letter-spacing: 0; }
 .rates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.rates button { border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 8px 4px; min-height: 56px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-weight: 700; }
+.rates button { border-radius: 14px; border: 1px solid var(--line); background: var(--surface); padding: 8px 2px; min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-weight: 700; font-size: 14px; }
 .rates button small { font-weight: 400; color: var(--ink-2); font-size: 11px; }
-.rates .r0 { border-color: var(--bad); color: var(--bad); }
-.rates .r3 { border-color: var(--good); color: var(--good); }
+.rates .r0 { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+.rates .r3 { border-color: var(--good); color: var(--good); background: var(--good-soft); }
 .choices { display: flex; flex-direction: column; gap: 8px; }
-.choices button { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; min-height: 48px; }
+.choices button { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px 14px; min-height: 52px; }
 .choices button.ok { background: var(--good-soft); border-color: var(--good); }
 .choices button.ng { background: var(--bad-soft); border-color: var(--bad); }
-.diff { font-family: var(--font-en); font-size: 19px; line-height: 1.6; }
+.diff { font-family: var(--font-en); font-size: 21px; line-height: 1.6; }
 .diff .ok { color: var(--good); }
-.diff .ng { color: var(--bad); text-decoration: underline; text-decoration-style: wavy; }
-.playbtn { width: 84px; height: 84px; border-radius: 50%; background: var(--gold); border: 0; color: #1C1A10; font-weight: 700; font-size: 14px; display: grid; place-items: center; margin: 4px auto; }
-.playbtn.sec { width: 44px; height: 44px; font-size: 12px; margin: 0; background: var(--gold-soft); color: var(--gold-ink); }
-.speeds { display: flex; gap: 6px; justify-content: center; }
+.diff .ng { color: var(--bad); text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 3px; }
+.playbtn { width: 96px; height: 96px; border-radius: 50%; background: var(--gold); border: 0; color: #1C1A10; display: grid; place-items: center; margin: 6px auto; box-shadow: 0 10px 24px rgba(184,144,28,.35); transition: transform .12s ease; }
+.playbtn:active { transform: scale(.95); }
+.playbtn svg.i { width: 40px; height: 40px; stroke-width: 2.2; fill: currentColor; }
+.playbtn.sec { width: 64px; height: 64px; box-shadow: 0 6px 16px rgba(184,144,28,.28); }
+.playbtn.sec svg.i { width: 26px; height: 26px; }
+.speeds { display: flex; background: var(--bg); border-radius: 999px; padding: 3px; }
+.speeds button { flex: 1; border: 0; background: none; border-radius: 999px; min-height: 38px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.speeds button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 .skill { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
 .skill > span:first-child { white-space: nowrap; min-width: 5em; }
 .skill .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
@@ -100,28 +149,41 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
 .chart { width: 100%; height: auto; display: block; }
 .chart text { fill: var(--ink-2); font-size: 10px; font-family: var(--font-ui); }
 .chart .today text { fill: var(--ink); font-weight: 700; }
-.list { display: flex; flex-direction: column; gap: 8px; }
-.item { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-.item:first-child { border-top: 0; padding-top: 0; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.item { background: var(--bg); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; }
 .score { font-weight: 700; color: var(--gold-ink); font-variant-numeric: tabular-nums; }
 .issues { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
-.note { font-size: 13px; background: var(--gold-soft); color: var(--gold-ink); border-radius: 10px; padding: 8px 12px; }
-.banner { background: var(--bad-soft); color: var(--bad); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.note { font-size: 13px; background: var(--gold-soft); color: var(--gold-ink); border-radius: 12px; padding: 10px 14px; }
+.banner { background: var(--bad-soft); color: var(--bad); border-radius: 12px; padding: 8px 12px; font-size: 13px; }
 .prog { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .center { text-align: center; }
+.donechk { width: 76px; height: 76px; border-radius: 50%; background: var(--good); color: #fff; display: grid; place-items: center; margin: 2px auto 6px; animation: pop .55s cubic-bezier(.2, 1.5, .4, 1); }
+.donechk svg.i { width: 38px; height: 38px; stroke-width: 3; }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
 .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--surface); border-top: 1px solid var(--line);
   display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
-.tabs button { border: 0; background: none; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--ink-2); }
-.tabs button .ico { font-family: var(--font-en); font-size: 17px; font-weight: 600; line-height: 1; color: var(--ink-2); }
-.tabs button.on, .tabs button.on .ico { color: var(--gold-ink); }
-.tabs button.on { font-weight: 700; }
+.tabs button { border: 0; background: none; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10.5px; color: var(--ink-2); }
+.tabs button svg.i { width: 24px; height: 24px; stroke-width: 1.8; }
+.tabs button.on { color: var(--gold-ink); font-weight: 700; }
+.tabs button.on svg.i { stroke-width: 2.4; }
 
 #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 14px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 9; max-width: 90vw; }
 #toast.show { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
+<svg hidden xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="14" rx="2.5"/><path d="M8 3.5h10.5A2.5 2.5 0 0 1 21 6v10.5"/><path d="M7 11h6M7 15h4"/></symbol>
+  <symbol id="i-ear" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0v4a3 3 0 0 1-3 3h-1"/><path d="M4 13v4a2 2 0 0 0 2 2h1v-6H4zM17 13h3v6h-1"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16z"/><path d="M13 7l4 4"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H6a2 2 0 0 1-2-2z"/><path d="M8 9h8M8 12.5h5"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21M9 21h6"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></symbol>
+</svg>
 
 <header class="top">
   <div class="brand">TOEIC900 道場<small>金のフレーズ対応</small></div>
@@ -134,15 +196,29 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
   <div id="dbBanner" class="banner" hidden>保存機能が使えません。Claudeアプリ内でこのページを開くと、進捗が保存されます。</div>
   <div id="dataBanner" class="banner" hidden>単語データを読み込めませんでした。しばらくしてから開き直してください。</div>
 
-  <div class="card">
-    <h3>推定レベル</h3>
-    <div id="levelBox"></div>
+  <div class="card hero">
+    <div class="row" style="flex-wrap:nowrap">
+      <div class="grow">
+        <div class="big"><span id="heroStreak" class="num">0</span><small>日連続</small></div>
+        <div class="muted" id="heroMsg"></div>
+      </div>
+      <div class="ring" aria-label="今日の達成">
+        <svg viewBox="0 0 78 78"><circle class="rbg" cx="39" cy="39" r="33"/><circle id="heroRing" class="rfg" cx="39" cy="39" r="33"/></svg>
+        <div class="rv"><b id="heroDone">0</b>/5</div>
+      </div>
+    </div>
+    <div class="week" id="heroWeek"></div>
   </div>
 
   <div class="card">
     <div class="row"><h3 class="grow">今日のメニュー <span id="menuDate" class="muted"></span></h3><span id="menuXp" class="prog"></span></div>
     <div class="menu" id="menuList"></div>
     <div class="muted">通勤の15分で5つ全部が終わる量にしてあります。1つだけでも連続日数は続きます。</div>
+  </div>
+
+  <div class="card">
+    <h3>推定レベル</h3>
+    <div id="levelBox"></div>
   </div>
 
   <div class="card">
@@ -171,14 +247,15 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
     <button id="vocabGo" class="btn primary block">開始</button>
     <div class="muted">カードの表で意味を思い出し、裏で答え合わせ。音声は本の収録音声です。イヤホン推奨。</div>
   </div>
-  <div id="vocabCard" class="card" hidden>
+  <div id="vocabCard" class="card focus" hidden>
     <div class="row"><span id="vcLv" class="pill lv"></span><span id="vcNew" class="pill" hidden>NEW</span><span class="grow"></span><span id="vcProg" class="prog"></span></div>
+    <div class="bar" id="vcBar"><i style="width:0%"></i></div>
     <div class="word" id="vcWord"></div>
-    <div class="row"><button class="playbtn sec" id="vcPlayWord" type="button">▶</button><span class="muted">単語を再生</span></div>
-    <div id="vcBack" hidden style="display:flex;flex-direction:column;gap:10px">
+    <div><button class="playbtn sec" id="vcPlayWord" type="button" aria-label="単語を再生"><svg class="i"><use href="#i-play"/></svg></button></div>
+    <div id="vcBack" hidden style="display:flex;flex-direction:column;gap:10px;align-items:center">
       <div class="ja" id="vcJa"></div>
       <div class="phrase" id="vcPhrase"></div>
-      <div class="row"><button class="playbtn sec" id="vcPlayPhrase" type="button">▶</button><span class="muted">フレーズを再生</span></div>
+      <button class="btn small ghost" id="vcPlayPhrase" type="button"><svg class="i"><use href="#i-play"/></svg>フレーズを再生</button>
     </div>
     <button id="vcFlip" class="btn primary block">意味を見る</button>
     <div class="rates" id="vcRates" hidden>
@@ -188,10 +265,11 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
       <button class="r3" data-r="3">簡単<small id="ivEasy"></small></button>
     </div>
   </div>
-  <div id="vocabDone" class="card" hidden>
+  <div id="vocabDone" class="card focus" hidden>
+    <div class="donechk"><svg class="i"><use href="#i-check"/></svg></div>
     <h2>今日の単語、完了</h2>
     <div id="vocabSummary"></div>
-    <button class="btn block" data-go="home">ホームへ</button>
+    <button class="btn primary block" data-go="home">ホームへ</button>
   </div>
 </section>
 
@@ -203,23 +281,25 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
     <div class="row"><span class="muted">問題数</span><select id="listenCount" class="btn small"><option>5</option><option selected>8</option><option>12</option></select></div>
     <button id="listenGo" class="btn primary block">開始</button>
   </div>
-  <div id="listenItem" class="card" hidden>
+  <div id="listenItem" class="card focus" hidden>
     <div class="row"><span id="liProg" class="prog"></span><span class="grow"></span><span id="liPlays" class="prog"></span></div>
-    <button class="playbtn" id="liPlay" type="button">再生</button>
-    <div class="speeds"><button class="btn small on" data-rate="1">1.0x</button><button class="btn small" data-rate="0.75">0.75x</button><button class="btn small" data-rate="1.25">1.25x</button></div>
+    <div class="steps" id="liBar"></div>
+    <div><button class="playbtn" id="liPlay" type="button" aria-label="再生"><svg class="i"><use href="#i-play"/></svg></button><div class="muted">タップして聞く</div></div>
+    <div class="speeds"><button data-rate="1" class="on">1.0x</button><button data-rate="0.75">0.75x</button><button data-rate="1.25">1.25x</button></div>
     <textarea id="liInput" placeholder="聞こえた英文を入力" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
     <button id="liCheck" class="btn primary block">答え合わせ</button>
-    <div id="liResult" hidden style="display:flex;flex-direction:column;gap:8px">
+    <div id="liResult" hidden style="display:flex;flex-direction:column;gap:10px;text-align:left">
       <div class="diff" id="liDiff"></div>
       <div class="ja" id="liJa"></div>
-      <div class="row"><span class="score" id="liScore"></span><span class="grow"></span><button class="btn small" id="liReplay">正解を聞く</button></div>
+      <div class="row"><span class="score" id="liScore" style="font-size:22px"></span><span class="grow"></span><button class="btn small ghost" id="liReplay"><svg class="i"><use href="#i-play"/></svg>正解を聞く</button></div>
       <button id="liNext" class="btn primary block">次へ</button>
     </div>
   </div>
-  <div id="listenDone" class="card" hidden>
+  <div id="listenDone" class="card focus" hidden>
+    <div class="donechk"><svg class="i"><use href="#i-check"/></svg></div>
     <h2>リスニング、完了</h2>
     <div id="listenSummary"></div>
-    <button class="btn block" data-go="home">ホームへ</button>
+    <button class="btn primary block" data-go="home">ホームへ</button>
   </div>
 </section>
 
@@ -256,7 +336,7 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
     <button id="exGen" class="btn primary block">今日の表現を出す</button>
     <div id="exStatus" class="muted" hidden></div>
     <div id="exList" class="list" hidden></div>
-    <button id="exDone" class="btn block" hidden>声に出して3回ずつ読んだ (完了)</button>
+    <button id="exDone" class="btn primary block" hidden>声に出して3回ずつ読んだ (完了)</button>
   </div>
   <div class="card">
     <h2>YouTubeで出たフレーズ</h2>
@@ -276,15 +356,14 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
     <button id="tsGo" class="btn primary block">はじめる</button>
     <button class="btn block" data-go="home">あとで</button>
   </div>
-  <div id="tsVocab" class="card" hidden>
+  <div id="tsVocab" class="card focus" hidden>
     <div class="row"><span class="pill">語彙</span><span class="grow"></span><span id="tsProg" class="prog"></span></div>
     <div class="word" id="tsWord"></div>
     <div class="choices" id="tsChoices"></div>
   </div>
-  <div id="tsListen" class="card" hidden>
+  <div id="tsListen" class="card focus" hidden>
     <div class="row"><span class="pill">ディクテーション</span><span class="grow"></span><span id="tsLProg" class="prog"></span></div>
-    <button class="playbtn" id="tsPlay" type="button">再生</button>
-    <div class="muted center">再生は2回まで</div>
+    <div><button class="playbtn" id="tsPlay" type="button" aria-label="再生"><svg class="i"><use href="#i-play"/></svg></button><div class="muted">再生は2回まで</div></div>
     <textarea id="tsInput" placeholder="聞こえた英文を入力" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea>
     <button id="tsCheck" class="btn primary block">決定</button>
   </div>
@@ -297,28 +376,29 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
 
 <!-- ================= PRON ================= -->
 <section id="v-pron" class="view" hidden>
-  <div class="card">
+  <div class="card focus">
+    <div style="width:64px;height:64px;border-radius:50%;background:var(--gold-soft);color:var(--gold-ink);display:grid;place-items:center"><svg class="i" style="width:30px;height:30px"><use href="#i-mic"/></svg></div>
     <h2>発音 (10フレーズ)</h2>
-    <div class="muted">このアプリの中ではマイクが使えないため、発音練習だけは別ページで行います。金のフレーズの例文をネイティブ音声で聞き、同じように言うと、iPhoneが聞き取った英文とお手本の単語一致率が出ます。終わったら「道場に戻る」で完了が記録されます。</div>
-    <a id="prOpen" class="btn primary block" href="#" target="_blank" rel="noopener">発音ページを開く (Safari)</a>
+    <div class="muted">マイクはこのアプリの中で使えないため、発音だけは Safari の別ページで行います。お手本を聞いて同じように言うと、iPhoneが聞き取った英文とお手本の単語一致率が出ます。</div>
     <div id="prToday" class="note" hidden></div>
-    <div class="muted">iPhoneの Safari で開いてください。初回は「音声認識を許可」をタップ。設定の Siri と音声入力がオンになっている必要があります。</div>
-    <div class="row"><span class="muted grow">「道場に戻る」で ✓ が付かなかったとき: 発音ページの平均一致率を入力</span></div>
-    <div class="row"><input id="prManual" type="number" inputmode="numeric" min="0" max="100" placeholder="例: 85" style="width:7em;flex:none"><button id="prManualGo" class="btn small" type="button">手入力で記録</button></div>
+    <a id="prOpen" class="btn primary block" href="#" target="_blank" rel="noopener"><svg class="i"><use href="#i-open"/></svg>発音ページを開く (Safari)</a>
+    <div class="muted">終わったら「道場に戻る」で完了が記録されます。初回は「音声認識を許可」をタップ。設定の Siri と音声入力がオンになっている必要があります。</div>
   </div>
   <div class="card">
     <h3>最近の一致率</h3>
     <div class="list" id="prHistory"><div class="muted">まだありません。</div></div>
+    <div class="muted">「道場に戻る」で ✓ が付かなかったとき: 発音ページの平均一致率を入力</div>
+    <div class="row"><input id="prManual" type="number" inputmode="numeric" min="0" max="100" placeholder="例: 85" style="width:7em;flex:none"><button id="prManualGo" class="btn small" type="button">手入力で記録</button></div>
   </div>
 </section>
 </main>
 
 <nav class="tabs" aria-label="メニュー">
-  <button data-go="home" class="on"><span class="ico">H</span>ホーム</button>
-  <button data-go="vocab"><span class="ico">V</span>単語</button>
-  <button data-go="listen"><span class="ico">L</span>聞く</button>
-  <button data-go="write"><span class="ico">W</span>書く</button>
-  <button data-go="expr"><span class="ico">E</span>表現</button>
+  <button data-go="home" class="on"><svg class="i"><use href="#i-home"/></svg>ホーム</button>
+  <button data-go="vocab"><svg class="i"><use href="#i-cards"/></svg>単語</button>
+  <button data-go="listen"><svg class="i"><use href="#i-ear"/></svg>聞く</button>
+  <button data-go="write"><svg class="i"><use href="#i-pen"/></svg>書く</button>
+  <button data-go="expr"><svg class="i"><use href="#i-chat"/></svg>表現</button>
 </nav>
 <audio id="player" preload="auto"></audio>
 <div id="toast" role="status"></div>
@@ -480,7 +560,16 @@ function renderHome() {
     { k: "expr", t: "表現", s: "今日の3表現を音読", xp: "+" + XP.expr },
     { k: "pron", t: "発音", s: d.pron != null ? "今日の一致率 " + d.pron + "%" : "10フレーズを声に出して判定", xp: "+" + XP.pron },
   ];
-  $("menuList").innerHTML = items.map((it) => '<button data-go="' + it.k + '"><span class="chk' + (d.menu[it.k] ? " done" : "") + '">' + (d.menu[it.k] ? "✓" : "") + '</span><span><div class="t">' + it.t + '</div><div class="s">' + it.s + '</div></span><span class="xp">' + it.xp + ' XP</span></button>').join("");
+  const nextK = (items.find((it) => !d.menu[it.k]) || {}).k;
+  $("menuList").innerHTML = items.map((it) => '<button data-go="' + it.k + '"' + (it.k === nextK ? ' class="next"' : "") + '><span class="chk' + (d.menu[it.k] ? " done" : "") + '">' + (d.menu[it.k] ? "✓" : "") + '</span><span><div class="t">' + it.t + '</div><div class="s">' + it.s + '</div></span>' + (it.k === nextK ? '<span class="go">はじめる ' + it.xp + '</span>' : '<span class="xp">' + it.xp + ' XP</span>') + '</button>').join("");
+
+  // hero: streak, today's ring (menu items done / 5), 7-day row (Mon..Sun of this week)
+  const si0 = streakInfo(); const doneN = items.filter((it) => d.menu[it.k]).length;
+  $("heroStreak").textContent = si0.cur; $("heroDone").textContent = doneN;
+  $("heroRing").style.strokeDashoffset = (207.3 * (1 - doneN / items.length)).toFixed(1);
+  $("heroMsg").textContent = doneN >= items.length ? "今日のメニュー、全部完了。" : doneN ? "あと " + (items.length - doneN) + " つで今日のメニュー完了" : si0.cur ? "今日もひとつやれば " + (si0.cur + 1) + " 日連続" : "ひとつやると連続日数が始まります";
+  const dow = new Date(today + "T12:00:00").getDay(); const mon = addDays(today, -((dow + 6) % 7));
+  $("heroWeek").innerHTML = ["月", "火", "水", "木", "金", "土", "日"].map((n, i) => { const ds = addDays(mon, i); const on = days[ds] && days[ds].xp > 0; return '<div' + (ds === today ? ' class="today"' : "") + '><i' + (on ? ' class="on"' : "") + '>' + (on ? "✓" : "") + '</i>' + n + '</div>'; }).join("");
 
   // 14-day chart
   const dsList = []; for (let i = 13; i >= 0; i--) dsList.push(addDays(today, -i));
@@ -532,6 +621,14 @@ $("vocabGo").addEventListener("click", () => {
   const plan = vocabPlan(); vq = [...plan.due, ...plan.fresh]; vIdx = 0; vStats = { n: 0, ok: 0, fresh: 0 }; vAgain = {};
   $("vocabStart").hidden = true; $("vocabCard").hidden = false; showCard();
 });
+/* Mark the headword inside its example sentence (inflections too: match on the stem, i.e. the word minus its last two letters). */
+function hlWord(ph, w) {
+  const stem = String(w).replace(/[^A-Za-z]/g, "").slice(0, Math.max(3, w.length - 2));
+  if (stem.length < 3) return esc(ph);
+  const re = new RegExp("\\b(" + stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[A-Za-z]*)", "gi");
+  return esc(ph).replace(re, "<mark>$1</mark>");
+}
+const stepsHtml = (i, n) => Array.from({ length: n }, (_, k) => '<i class="' + (k < i ? "on" : k === i ? "cur" : "") + '"></i>').join("");
 function ivPreview(e, r) {
   if (!e || e.iv === 0) return r === 1 ? "1日後" : r === 2 ? "1日後" : "4日後";
   const iv = r === 1 ? Math.max(1, Math.round(e.iv * 1.2)) : r === 2 ? Math.round(e.iv * e.ef) : Math.round(e.iv * e.ef * 1.3);
@@ -544,7 +641,8 @@ function showCard() {
   $("vcNew").hidden = !!e;
   $("vcProg").textContent = (vIdx + 1) + " / " + vq.length;
   $("vcWord").textContent = vCur.w;
-  $("vcJa").textContent = vCur.ja || ""; $("vcPhrase").textContent = vCur.ph || "";
+  $("vcJa").textContent = vCur.ja || ""; $("vcPhrase").innerHTML = hlWord(vCur.ph || "", vCur.w || "");
+  $("vcBar").firstElementChild.style.width = Math.round(vIdx / Math.max(1, vq.length) * 100) + "%";
   $("vcBack").hidden = true; $("vcRates").hidden = true; $("vcFlip").hidden = false;
   $("ivHard").textContent = ivPreview(e, 1); $("ivGood").textContent = ivPreview(e, 2); $("ivEasy").textContent = ivPreview(e, 3);
   playWord(vCur);
@@ -608,7 +706,7 @@ $("listenGo").addEventListener("click", () => {
 });
 function showListen() {
   if (lIdx >= lq.length) return finishListen();
-  lPlays = 0; $("liProg").textContent = (lIdx + 1) + " / " + lq.length; $("liPlays").textContent = "";
+  lPlays = 0; $("liProg").textContent = (lIdx + 1) + " / " + lq.length; $("liPlays").textContent = ""; $("liBar").innerHTML = stepsHtml(lIdx, lq.length);
   $("liInput").value = ""; $("liResult").hidden = true; $("liCheck").hidden = false; $("liInput").disabled = false;
   setTimeout(() => playPhrase(lq[lIdx], lRate), 200);
 }
