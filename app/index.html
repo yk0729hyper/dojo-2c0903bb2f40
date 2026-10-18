@@ -407,6 +407,8 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
     <div class="row"><span class="muted">定期判定の間隔</span><select id="tsEvery" class="btn small"><option value="7">1週間</option><option value="14" selected>2週間</option><option value="30">1か月</option></select></div>
     <div id="tsHist" class="muted"></div>
     <button id="tsGo" class="btn primary block">はじめる</button>
+    <button id="tsReviewBtn" class="btn block" type="button" hidden>前回の問題と答えを見直す</button>
+    <div id="tsReview" hidden></div>
     <button class="btn block" data-go="home">あとで</button>
   </div>
   <div id="tsVocab" class="card focus" hidden>
@@ -560,7 +562,7 @@ function go(v) {
   if (v === "home") { renderHome(); resetListen(); $("tsIntro").hidden = false; ["tsVocab", "tsListen", "tsResult"].forEach((id) => { $(id).hidden = true; }); }
   if (v === "listen" && !$("listenStart").hidden) syncListenMode();
   if (v === "vocab") renderVocabStart();
-  if (v === "test") { $("tsEvery").value = String(profile.testEvery || 14); const th = testHistory(); $("tsHist").textContent = th.length ? "これまで " + th.length + " 回。前回 " + th[th.length - 1].date.slice(5).replace("-", "/") + " は推定 " + estimate(th[th.length - 1]) + " 点。" : "初回です。"; }
+  if (v === "test") { $("tsEvery").value = String(profile.testEvery || 14); const th = testHistory(); $("tsHist").textContent = th.length ? "これまで " + th.length + " 回。前回 " + th[th.length - 1].date.slice(5).replace("-", "/") + " は推定 " + estimate(th[th.length - 1]) + " 点。" : "初回です。"; $("tsReviewBtn").hidden = !(th.length && db); $("tsReview").hidden = true; }
   if (v === "write") renderWrite();
   if (v === "expr") renderExpr();
   if (v === "pron") renderPron();
@@ -1158,10 +1160,42 @@ $("prManualGo").addEventListener("click", () => {
 
 /* ---------- PLACEMENT TEST ---------- */
 let tq = [], tIdx = 0, tRes = {}, tl = [], tlIdx = 0, tlPlays = 0, tlSum = 0;
+/* Every answer of the running test is logged (tLog) so the result screen can list question / answer / your pick,
+   and the log is saved as testlog/{date} for later review from the test intro. */
+let tLog = { v: [], l: [] };
+function reviewHtml(log) {
+  const v = log.v || [], l = log.l || [];
+  const wrong = v.filter((x) => !x.ok).length;
+  let h = '<div class="row" style="margin-top:10px"><h3 class="grow">語彙 ' + v.length + '問 (不正解 ' + wrong + ')</h3><span class="muted">▶ で音声</span></div><div class="list" style="gap:6px">';
+  for (const lv of MAIN_LV) {
+    const items = v.filter((x) => x.lv === lv); if (!items.length) continue;
+    h += '<div class="prog" style="margin-top:4px">' + LV_LABEL[lv] + '</div>';
+    h += items.map((x) => '<div class="item" style="padding:8px 12px;gap:2px"><div class="row" style="flex-wrap:nowrap"><span class="chk' + (x.ok ? " done" : "") + '" style="width:20px;height:20px;font-size:11px;' + (x.ok ? "" : "border-color:var(--bad);color:var(--bad)") + '">' + (x.ok ? "✓" : "✕") + '</span><span class="en" style="font-size:17px;font-weight:600">' + esc(x.w) + '</span><span class="grow"></span><button class="btn small ghost" data-pw="' + esc(x.id) + '" type="button">▶</button></div><div style="font-size:14px">' + esc(x.ja) + (x.ok ? "" : ' <span class="muted">(あなた: ' + esc(x.pick) + ")</span>") + '</div>' + (x.ph ? '<div class="en muted" style="font-size:13px">' + esc(x.ph) + '</div>' : "") + "</div>").join("");
+  }
+  h += "</div>";
+  if (l.length) {
+    h += '<h3 style="margin-top:12px">聞き取り ' + l.length + '問</h3><div class="list" style="gap:6px">' + l.map((x) => '<div class="item" style="padding:8px 12px;gap:3px"><div class="row" style="flex-wrap:nowrap"><span class="score" style="font-size:14px">' + Math.round(x.score * 100) + '%</span><span class="grow"></span><button class="btn small ghost" data-pp="' + esc(x.id) + '" type="button">▶</button></div><div class="diff" style="font-size:16px">' + (x.marks ? renderDiff(x.marks) : esc(x.ph)) + '</div><div class="muted">あなた: ' + esc(x.typed || "(未入力)") + '</div><div class="muted">' + esc(x.w) + " — " + esc(x.ja) + "</div></div>").join("") + "</div>";
+  }
+  return h;
+}
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest("[data-pw]"); if (a) { const w = BYID[a.dataset.pw]; if (w) playWord(w); return; }
+  const b = ev.target.closest("[data-pp]"); if (b) { const w = BYID[b.dataset.pp]; if (w) playPhrase(w); }
+});
 $("tsEvery").addEventListener("change", () => { profile.testEvery = Number($("tsEvery").value) || 14; saveProfile(); });
+$("tsReviewBtn").addEventListener("click", async () => {
+  const th = testHistory(); if (!th.length || !db) return;
+  const box = $("tsReview"); box.hidden = false; box.innerHTML = '<div class="muted">読み込み中...</div>';
+  try {
+    const s = await db.doc("testlog/" + th[th.length - 1].date).get();
+    if (!s.exists) { box.innerHTML = '<div class="muted">この回の問題は記録されていません(記録は今後の判定から残ります)。</div>'; return; }
+    const log = s.data(); log.l = (log.l || []).map((x) => Object.assign({}, x, { marks: diffWords(x.ph, x.typed || "").marks }));
+    box.innerHTML = '<div class="prog">' + esc(log.date) + ' の判定 (推定 ' + esc(String(log.est)) + ' 点)</div>' + reviewHtml(log);
+  } catch (e) { box.innerHTML = '<div class="muted">読み込みに失敗しました。</div>'; }
+});
 $("tsGo").addEventListener("click", () => {
   unlockAudio();
-  tq = []; tRes = {};
+  tq = []; tRes = {}; tLog = { v: [], l: [] };
   for (const lv of MAIN_LV) {
     const pool = WORDS.filter((w) => w.lv === lv && w.ja); const picks = shuffle([...pool]).slice(0, 10);
     for (const w of picks) { const ds = shuffle(pool.filter((x) => x.id !== w.id && x.ja !== w.ja)).slice(0, 3).map((x) => x.ja); tq.push({ w, choices: shuffle([w.ja, ...ds]) }); }
@@ -1178,6 +1212,7 @@ function showTs() {
 $("tsChoices").addEventListener("click", (ev) => {
   const b = ev.target.closest("button"); if (!b || b.disabled) return;
   const q = tq[tIdx]; const ok = b.textContent === q.w.ja; tRes[q.w.lv].n++; if (ok) tRes[q.w.lv].ok++;
+  tLog.v.push({ id: q.w.id, w: q.w.w, ja: q.w.ja, ph: q.w.ph || "", lv: q.w.lv, pick: b.textContent, ok });
   [...$("tsChoices").children].forEach((x) => { x.disabled = true; if (x.textContent === q.w.ja) x.classList.add("ok"); else if (x === b) x.classList.add("ng"); });
   setTimeout(() => { tIdx++; showTs(); }, ok ? 350 : 900);
 });
@@ -1192,7 +1227,11 @@ function showTsListen() {
   tlPlays = 0; $("tsLProg").textContent = (tlIdx + 1) + " / " + tl.length; $("tsInput").value = ""; $("tsPlay").disabled = false;
 }
 $("tsPlay").addEventListener("click", () => { if (tlPlays >= 2) return; tlPlays++; playPhrase(tl[tlIdx], 1); if (tlPlays >= 2) $("tsPlay").disabled = true; });
-$("tsCheck").addEventListener("click", () => { tlSum += diffWords(tl[tlIdx].ph, $("tsInput").value).score; tlIdx++; showTsListen(); });
+$("tsCheck").addEventListener("click", () => {
+  const w = tl[tlIdx]; const r = diffWords(w.ph, $("tsInput").value); tlSum += r.score;
+  tLog.l.push({ id: w.id, w: w.w, ja: w.ja || "", ph: w.ph, typed: $("tsInput").value.trim(), score: r.score, marks: r.marks });
+  tlIdx++; showTsListen();
+});
 function finishTs(l) {
   $("tsListen").hidden = true; $("tsResult").hidden = false;
   const a = {}; for (const lv of MAIN_LV) a[lv] = tRes[lv].n ? tRes[lv].ok / tRes[lv].n : 0;
@@ -1208,7 +1247,10 @@ function finishTs(l) {
     + lvLine("聞き取り", l, prev ? prev.l : null)
     + '<div class="note" style="margin-top:8px">' + (diff == null ? (est >= 860 ? "語彙は900圏内。リスニングの精度と表現の幅で差がつく段階です。" : est >= 730 ? "730点レベルの語彙を固めつつ、860点レベルを毎日15語ずつ積むと3か月で見える景色が変わります。" : "まず600点レベル400語を2週間で一周。毎日の単語+ディクテーションを最優先に。")
         : diff >= 20 ? "前回から " + diff + " 点アップ。伸びた帯の語彙を復習で固めると定着します。" : diff > -20 ? "前回とほぼ同じ。±40の誤差内なので、次回までの2週間で学習中の語を定着(復習間隔3週間以上)に変えるのが目標です。" : "前回から " + Math.abs(diff) + " 点ダウン。落ちた帯(上の▼)の語を単語タブの復習で集中的に。") + "</div>"
-    + '<div class="muted" style="margin-top:6px">次回の定期判定は ' + esc(addDays(today, profile.testEvery || 14).slice(5).replace("-", "/")) + ' 以降にホームへ出ます。</div>';
+    + '<div class="muted" style="margin-top:6px">次回の定期判定は ' + esc(addDays(today, profile.testEvery || 14).slice(5).replace("-", "/")) + ' 以降にホームへ出ます。</div>'
+    + reviewHtml(tLog);
+  const log = { date: today, est, v: tLog.v, l: tLog.l.map((x) => Object.assign({}, x, { marks: undefined })) };
+  save("testlog/" + today, JSON.parse(JSON.stringify(log)));
 }
 
 /* ---------- boot ---------- */
