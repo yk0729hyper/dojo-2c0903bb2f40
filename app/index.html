@@ -247,6 +247,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
     <div id="vocabPlan" class="muted"></div>
     <div class="row"><span class="muted">1日の新規語数</span><select id="newPerDay" class="btn small"><option>5</option><option>10</option><option selected>15</option><option>20</option><option>30</option><option>50</option><option>100</option></select></div>
     <div class="row"><span class="muted">出題範囲</span><select id="vocabSrc" class="btn small"><option value="all">金のフレーズ + ビジネス頻出</option><option value="kin">金のフレーズのみ</option><option value="biz">ビジネス頻出のみ</option></select></div>
+    <div class="row"><span class="muted">出題形式</span><select id="vocabMode" class="btn small"><option value="quiz">4択 (意味を選ぶ)</option><option value="flip">思い出す (めくって自己採点)</option></select></div>
     <button id="vocabGo" class="btn primary block">開始</button>
     <div class="muted">カードの表で意味を思い出し、裏で例文と一緒に答え合わせ。金のフレーズは本の収録音声、ビジネス頻出語は米国ネイティブ音声(合成)です。イヤホン推奨。</div>
   </div>
@@ -259,6 +260,11 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; font-size: 16p
       <div class="ja" id="vcJa"></div>
       <div class="phrase" id="vcPhrase"></div>
       <button class="btn small ghost" id="vcPlayPhrase" type="button"><svg class="i"><use href="#i-play"/></svg>フレーズを再生</button>
+    </div>
+    <div class="choices" id="vcChoices" hidden style="text-align:left"></div>
+    <div id="vcQuizAct" class="row" hidden style="gap:8px">
+      <button class="btn block grow" id="vcQuizNext" data-r="2" type="button">次へ</button>
+      <button class="btn block" id="vcQuizEasy" data-r="3" type="button" style="flex:0 0 auto">簡単だった</button>
     </div>
     <button id="vcFlip" class="btn primary block">意味を見る</button>
     <div class="rates" id="vcRates" hidden>
@@ -503,43 +509,38 @@ let curFile = null, stopAt = null, stopTimer = null;
 player.addEventListener("timeupdate", () => { if (stopAt != null && player.currentTime >= stopAt) { player.pause(); stopAt = null; } });
 /* iOS only lets an <audio> element play after a play() that ran inside a tap, and that play() needs a source.
    The first tap primes the element with a muted play/pause; later plays (after awaits) are then allowed. */
-let unlocked = false, unlockP = null;
-function unlockAudio() {
-  if (unlocked || unlockP) return unlockP;
-  try {
-    if (!player.getAttribute("src")) { const k = Object.keys(FILES)[0]; if (!k) return null; player.src = FILES[k]; curFile = k; }
-    player.muted = true;
-    const p = player.play();
-    unlockP = (p && p.then ? p : Promise.resolve()).then(() => { unlocked = true; }).catch(() => {}).then(() => { if (stopAt == null) player.pause(); player.muted = false; unlockP = null; });
-    return unlockP;
-  } catch (e) { return null; }
-}
-/* f: a key of FILES (chNN / bizNN) or a relative URL (dialogue files). The stop timer is armed only once
-   playback has actually started ("playing"), so loading time never eats into the clip. */
-async function playClip(f, s, e, rate = 1) {
+/* No priming any more: every play() now runs synchronously inside the tap that asked for it (see playClip),
+   and a muted priming play that never settled used to leave the element muted. */
+function unlockAudio() { try { player.muted = false; } catch (e) {} return null; }
+/* f: a key of FILES (chNN / bizNN) or a relative URL (dialogue files). iOS only honors play() that runs
+   synchronously inside the tap, so nothing is awaited here: the clip is addressed with a media-fragment URL
+   (#t=start,end — WebKit seeks to start and pauses at end) and play() is called at once. The timer armed on
+   "playing" is a fallback stop for browsers that ignore the end fragment. `quiet` is for automatic plays
+   (card shown), where a refusal is expected and should not nag. */
+let wantRate = 1;
+player.addEventListener("loadedmetadata", () => { player.playbackRate = wantRate; });
+function playClip(f, s, e, rate = 1, quiet = false) {
   const url = FILES[f] || (/[\/.]/.test(String(f)) ? String(f) : null);
   if (!url) return false;
   clearTimeout(stopTimer); stopAt = null;
-  if (unlockP) await unlockP;
-  if (curFile !== f || !player.src) {
-    player.src = url; curFile = f;
-    await new Promise((res) => { const done = () => res(); player.addEventListener("loadedmetadata", done, { once: true }); player.addEventListener("error", done, { once: true }); player.load(); setTimeout(done, 4000); });
-  }
   try {
     player.pause();
+    const end = e + 0.12; wantRate = rate;
+    player.src = url + "#t=" + Number(s).toFixed(2) + "," + end.toFixed(2); curFile = f;
     player.playbackRate = rate;
-    try { player.currentTime = s; } catch (err) {}
-    stopAt = e + 0.12;
+    stopAt = end;
     const arm = () => {
       clearTimeout(stopTimer); if (stopAt == null) return;
+      player.playbackRate = wantRate;
       if (player.currentTime < s - 1.5) { try { player.currentTime = s; } catch (err) {} }
       const rem = Math.max(0.05, (stopAt - player.currentTime) / (player.playbackRate || 1));
       stopTimer = setTimeout(() => { if (stopAt != null) { player.pause(); stopAt = null; } }, rem * 1000 + 80);
     };
     player.addEventListener("playing", arm, { once: true });
-    await player.play();
+    const p = player.play();
+    if (p && p.catch) p.catch(() => { if (!quiet) toast("再生できませんでした。再生ボタンをもう一度タップしてください"); });
     return true;
-  } catch (err) { toast("再生できませんでした。もう一度タップしてください"); return false; }
+  } catch (err) { if (!quiet) toast("再生できませんでした"); return false; }
 }
 function speak(text) {
   if (!("speechSynthesis" in window)) { toast("この端末では読み上げできません"); return; }
@@ -547,8 +548,8 @@ function speak(text) {
   const v = speechSynthesis.getVoices().find((x) => x.lang === "en-US") ; if (v) u.voice = v;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
-function playWord(w, rate) { if (w.f && FILES[w.f]) return playClip(w.f, w.ws, w.we, rate); speak(w.w); }
-function playPhrase(w, rate) { if (w.f && FILES[w.f] && w.ph) return playClip(w.f, w.ps, w.pe, rate); speak(w.ph || w.w); }
+function playWord(w, rate, quiet) { if (w.f && FILES[w.f]) return playClip(w.f, w.ws, w.we, rate, quiet); speak(w.w); }
+function playPhrase(w, rate, quiet) { if (w.f && FILES[w.f] && w.ph) return playClip(w.f, w.ps, w.pe, rate, quiet); speak(w.ph || w.w); }
 
 /* ---------- navigation ---------- */
 const VIEWS = ["home", "vocab", "listen", "write", "expr", "test", "pron"];
@@ -711,13 +712,14 @@ function renderVocabStart() {
   $("vocabStart").hidden = false; $("vocabCard").hidden = true; $("vocabDone").hidden = true;
   const plan = vocabPlan();
   $("newPerDay").value = String(profile.newPerDay || 15);
-  $("vocabSrc").value = profile.src || "all";
+  $("vocabSrc").value = profile.src || "all"; $("vocabMode").value = profile.vocabMode || "quiz";
   $("vocabPlan").textContent = "復習 " + plan.due.length + " 語 / 新規 " + plan.fresh.length + " 語 (約 " + Math.max(1, Math.round((plan.due.length + plan.fresh.length) * 0.3)) + " 分)";
   $("vocabGo").disabled = plan.due.length + plan.fresh.length === 0;
   if ($("vocabGo").disabled) $("vocabPlan").textContent += " — 今日の分は終わっています。";
 }
 $("newPerDay").addEventListener("change", () => { profile.newPerDay = Number($("newPerDay").value); saveProfile(); renderVocabStart(); });
 $("vocabSrc").addEventListener("change", () => { profile.src = $("vocabSrc").value; saveProfile(); renderVocabStart(); });
+$("vocabMode").addEventListener("change", () => { profile.vocabMode = $("vocabMode").value; saveProfile(); });
 $("vocabGo").addEventListener("click", () => {
   unlockAudio();
   const plan = vocabPlan(); vq = [...plan.due, ...plan.fresh]; vIdx = 0; vStats = { n: 0, ok: 0, fresh: 0 }; vAgain = {};
@@ -745,10 +747,29 @@ function showCard() {
   $("vcWord").textContent = vCur.w;
   $("vcJa").textContent = vCur.ja || ""; $("vcPhrase").innerHTML = hlWord(vCur.ph || "", vCur.w || "");
   $("vcBar").firstElementChild.style.width = Math.round(vIdx / Math.max(1, vq.length) * 100) + "%";
-  $("vcBack").hidden = true; $("vcRates").hidden = true; $("vcFlip").hidden = false;
+  $("vcBack").hidden = true; $("vcRates").hidden = true; $("vcQuizAct").hidden = true;
   $("ivHard").textContent = ivPreview(e, 1); $("ivGood").textContent = ivPreview(e, 2); $("ivEasy").textContent = ivPreview(e, 3);
-  playWord(vCur);
+  const quiz = (profile.vocabMode || "quiz") === "quiz" && !!vCur.ja;
+  $("vcFlip").hidden = quiz; $("vcChoices").hidden = !quiz;
+  if (quiz) {
+    const pool = WORDS.filter((x) => x.id !== vCur.id && x.ja && x.ja !== vCur.ja && (x.lv === vCur.lv || vCur.lv === "sup"));
+    const ds = shuffle(pool.length >= 3 ? pool : WORDS.filter((x) => x.id !== vCur.id && x.ja && x.ja !== vCur.ja)).slice(0, 3).map((x) => x.ja);
+    $("vcChoices").innerHTML = shuffle([vCur.ja, ...ds]).map((c) => '<button type="button">' + esc(c) + "</button>").join("");
+  }
+  playWord(vCur, 1, true);
 }
+/* 4択: the answer tap doubles as the rating. Right → 「次へ」= できた (or 簡単だった); wrong → 「次へ」= もう一度 (re-asked). */
+let vcQuizRight = null;
+$("vcChoices").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button"); if (!b || b.disabled || !vCur) return;
+  const ok = b.textContent === vCur.ja; vcQuizRight = ok;
+  [...$("vcChoices").children].forEach((x) => { x.disabled = true; if (x.textContent === vCur.ja) x.classList.add("ok"); else if (x === b) x.classList.add("ng"); });
+  $("vcBack").hidden = false; $("vcQuizAct").hidden = false;
+  $("vcQuizNext").textContent = ok ? "次へ (できた)" : "次へ (もう一度出す)"; $("vcQuizNext").dataset.r = ok ? "2" : "0"; $("vcQuizEasy").hidden = !ok;
+  $("vcQuizNext").classList.toggle("primary", true);
+  playPhrase(vCur, 1, true);
+});
+$("vcQuizAct").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-r]"); if (b) rateCard(Number(b.dataset.r)); });
 $("vcPlayWord").addEventListener("click", () => vCur && playWord(vCur));
 $("vcPlayPhrase").addEventListener("click", () => vCur && playPhrase(vCur));
 $("vcFlip").addEventListener("click", () => { $("vcBack").hidden = false; $("vcRates").hidden = false; $("vcFlip").hidden = true; playPhrase(vCur); });
@@ -838,10 +859,10 @@ $("listenGo").addEventListener("click", () => {
   $("dlgTitle").textContent = dcur.title; $("dlgSit").textContent = dcur.situation; $("dlgDur").textContent = Math.round(dcur.dur) + "秒"; $("dlgPlays").textContent = "";
   document.querySelectorAll("#dlgSpeeds button").forEach((x) => x.classList.toggle("on", x.dataset.rate === "1"));
   document.querySelectorAll("#ddSpeeds button").forEach((x) => x.classList.toggle("on", x.dataset.rate === "1"));
-  setTimeout(playDialogue, 300);
+  setTimeout(() => playDialogue(true), 300);
 });
-function playDialogue() { dPlays++; $("dlgPlays").textContent = "再生 " + dPlays + " 回"; playClip(dcur.file, 0, dcur.dur, dRate); }
-$("dlgPlay").addEventListener("click", playDialogue);
+function playDialogue(quiet) { dPlays++; $("dlgPlays").textContent = "再生 " + dPlays + " 回"; playClip(dcur.file, 0, dcur.dur, dRate, !!quiet); }
+$("dlgPlay").addEventListener("click", () => playDialogue(false));
 document.querySelectorAll("#dlgSpeeds button").forEach((b) => b.addEventListener("click", () => { dRate = Number(b.dataset.rate); document.querySelectorAll("#dlgSpeeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
 document.querySelectorAll("#ddSpeeds button").forEach((b) => b.addEventListener("click", () => { ddRate = Number(b.dataset.rate); document.querySelectorAll("#ddSpeeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
 $("dlgToQ").addEventListener("click", () => { player.pause(); stopAt = null; $("dlgCard").hidden = true; $("dlgQCard").hidden = false; showDlgQ(); });
@@ -863,7 +884,7 @@ function dictLine() { return dcur.lines[Math.min(dcur.dict || 0, dcur.lines.leng
 function showDlgDict() {
   $("dlgQCard").hidden = true; $("dlgDictCard").hidden = false; ddPlays = 0; $("ddPlays").textContent = "";
   $("ddInput").value = ""; $("ddInput").disabled = false; $("ddResult").hidden = true; $("ddCheck").hidden = false;
-  const ln = dictLine(); setTimeout(() => playClip(dcur.file, ln.st, ln.en, ddRate), 300);
+  const ln = dictLine(); setTimeout(() => playClip(dcur.file, ln.st, ln.en, ddRate, true), 300);
 }
 $("ddPlay").addEventListener("click", () => { const ln = dictLine(); ddPlays++; $("ddPlays").textContent = "再生 " + ddPlays + " 回"; playClip(dcur.file, ln.st, ln.en, ddRate); });
 $("ddCheck").addEventListener("click", () => {
@@ -902,7 +923,7 @@ function showListen() {
   if (lIdx >= lq.length) return finishListen();
   lPlays = 0; $("liProg").textContent = (lIdx + 1) + " / " + lq.length; $("liPlays").textContent = ""; $("liBar").innerHTML = stepsHtml(lIdx, lq.length);
   $("liInput").value = ""; $("liResult").hidden = true; $("liCheck").hidden = false; $("liInput").disabled = false;
-  setTimeout(() => playPhrase(lq[lIdx], lRate), 200);
+  setTimeout(() => playPhrase(lq[lIdx], lRate, true), 200);
 }
 $("liPlay").addEventListener("click", () => { lPlays++; $("liPlays").textContent = "再生 " + lPlays + " 回"; playPhrase(lq[lIdx], lRate); });
 document.querySelectorAll("#listenItem .speeds button").forEach((b) => b.addEventListener("click", () => { lRate = Number(b.dataset.rate); document.querySelectorAll("#listenItem .speeds button").forEach((x) => x.classList.toggle("on", x === b)); }));
