@@ -169,7 +169,7 @@ h3 { font-size: 14px; margin: 0; color: var(--ink-2); font-weight: 500; letter-s
     <div class="note" id="dnNote"></div>
     <div class="list" id="dnList"></div>
     <a id="dnBack" class="btn primary block" href="#">道場に戻る (完了を記録)</a>
-    <div class="muted">道場が開いたら、ホームの「発音」に ✓ と XP が付きます。開かない場合は Claude アプリで道場を開き直してください。</div>
+    <div class="muted">道場が開いたら、ホームの「発音」に ✓ と XP が付きます。Claude アプリが開いて ✓ が付かないときは、道場の「発音」画面で今日の一致率 <b id="dnCode" class="num"></b> を手入力してください。</div>
     <button class="btn block" id="dnAgain" type="button">もう10フレーズ</button>
   </section>
 </main>
@@ -211,24 +211,39 @@ async function loadWords() {
 
 /* ---------- audio ---------- */
 const player = $("player");
-let curFile = null, stopAt = null, stopTimer = null;
-player.addEventListener("timeupdate", () => { if (stopAt != null && player.currentTime >= stopAt) { player.pause(); stopAt = null; } });
+let curFile = null, stopAt = null, stopTimer = null, rafId = null, playSeq = 0;
+/* iOS Safari starts playback some time after play() resolves (range request, decode), so the stop point is
+   watched on the clock of the player itself: a rAF loop on currentTime, plus a safety timer armed on "playing". */
+function once(ev, ms) { return new Promise((res) => { let t; const done = () => { clearTimeout(t); res(); }; ev.forEach((e) => player.addEventListener(e, done, { once: true })); t = setTimeout(done, ms); }); }
+function stopWatch() { if (rafId) cancelAnimationFrame(rafId); rafId = null; clearTimeout(stopTimer); stopTimer = null; }
+function watchStop(seq) {
+  const tick = () => { if (seq !== playSeq) return; if (stopAt != null && player.currentTime >= stopAt) { player.pause(); stopAt = null; return; } if (stopAt != null) rafId = requestAnimationFrame(tick); };
+  rafId = requestAnimationFrame(tick);
+}
 function unlockAudio() { try { const p = player.play(); if (p && p.catch) p.catch(() => {}); player.pause(); } catch (e) {} }
 async function playClip(w, rate = 1) {
   const url = FILES[w.f] ? AUDIO_BASE + FILES[w.f] : null;
   if (!url) return speak(w.ph);
-  clearTimeout(stopTimer); stopAt = null;
-  if (curFile !== w.f || !player.src) {
-    player.src = url; curFile = w.f;
-    await new Promise((res) => { const done = () => res(); player.addEventListener("loadedmetadata", done, { once: true }); player.addEventListener("error", done, { once: true }); player.load(); setTimeout(done, 5000); });
+  const seq = ++playSeq; stopWatch(); stopAt = null;
+  if (curFile !== w.f || !player.getAttribute("src")) {
+    player.src = url; curFile = w.f; player.load();
+    await once(["loadedmetadata", "error"], 6000);
+    if (seq !== playSeq) return;
   }
   try {
-    player.pause(); player.playbackRate = rate; player.currentTime = w.ps; stopAt = w.pe;
-    stopTimer = setTimeout(() => { if (stopAt != null) { player.pause(); stopAt = null; } }, ((w.pe - w.ps) / rate) * 1000 + 150);
+    player.pause(); player.playbackRate = rate;
+    if (Math.abs(player.currentTime - w.ps) > 0.05) { const p = once(["seeked", "error"], 2500); player.currentTime = w.ps; await p; }
+    if (seq !== playSeq) return;
+    stopAt = w.pe;
+    player.addEventListener("playing", () => { if (seq !== playSeq || stopAt == null) return; clearTimeout(stopTimer); stopTimer = setTimeout(() => { if (seq === playSeq && stopAt != null) { player.pause(); stopAt = null; } }, Math.max(0, stopAt - player.currentTime) / rate * 1000 + 150); }, { once: true });
+    watchStop(seq);
     await player.play();
-  } catch (err) { speak(w.ph); }
+  } catch (err) { if (seq === playSeq) speak(w.ph); }
 }
-function stopAudio() { try { player.pause(); } catch (e) {} stopAt = null; clearTimeout(stopTimer); if ("speechSynthesis" in window) speechSynthesis.cancel(); }
+function stopAudio() { playSeq++; stopWatch(); try { player.pause(); } catch (e) {} stopAt = null; if ("speechSynthesis" in window) speechSynthesis.cancel(); }
+/* Before recording, let go of the media element entirely: on iOS an active <audio> can keep the audio session in
+   playback mode and starve the microphone. The next お手本 reloads metadata (one small range request). */
+function releaseAudio() { stopAudio(); try { player.removeAttribute("src"); player.load(); } catch (e) {} curFile = null; }
 function speak(text) {
   if (!("speechSynthesis" in window)) { toast("この端末では音声を再生できません"); return; }
   const u = new SpeechSynthesisUtterance(text); u.lang = "en-US"; u.rate = 0.95;
@@ -273,21 +288,26 @@ const srOK = !!SR || SIM;
 let rec = null, recBusy = false, recTimer = null;
 /* iOS Safari can fire onresult more than once even with interimResults=false, so results are collected
    and judged once, when recognition ends (or on the first final result). */
-function startRec(onResult, onFail) {
+function startRec(onResult, onFail, onInterim) {
   if (SIM) { const h = prompt("(シミュレーション) 認識された英文を入力", ""); if (h == null) return onFail("aborted"); return onResult([h]); }
   if (!SR) return onFail("unsupported");
   try { if (rec) { rec.onresult = rec.onerror = rec.onend = null; try { rec.abort(); } catch (e) {} } } catch (e) {}
-  rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.continuous = false; rec.maxAlternatives = 5;
-  let alts = [], failed = null, settled = false; recBusy = true;
+  /* interimResults must be true on iOS Safari: with false it sometimes never delivers a result at all. */
+  rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 5;
+  let alts = [], failed = null, settled = false, nEvents = 0; recBusy = true;
   const settle = () => {
     if (settled) return; settled = true; recBusy = false; clearTimeout(recTimer);
-    if (alts.length) onResult(alts); else onFail(failed || "no-speech");
+    if (alts.length) onResult(alts); else onFail(failed || (nEvents ? "empty" : "no-speech"));
   };
   rec.onresult = (ev) => {
-    const got = []; let final = false;
-    for (let i = 0; i < ev.results.length; i++) { const r = ev.results[i]; if (r.isFinal) final = true; for (let k = 0; k < r.length; k++) if (r[k] && r[k].transcript && r[k].transcript.trim()) got.push(r[k].transcript.trim()); }
-    if (got.length) alts = got;
-    if (final) { try { rec.stop(); } catch (e) {} setTimeout(settle, 250); }
+    nEvents++;
+    const rs = []; for (let i = 0; i < ev.results.length; i++) rs.push(ev.results[i]);
+    if (!rs.length) return;
+    const nAlt = Math.max(1, ...rs.map((r) => r.length));
+    const got = [];
+    for (let k = 0; k < nAlt; k++) { const s = rs.map((r) => ((r[k] || r[0]) && (r[k] || r[0]).transcript) || "").join(" ").replace(/\s+/g, " ").trim(); if (s) got.push(s); }
+    if (got.length) { alts = got; if (onInterim) onInterim(got[0]); }
+    if (rs.every((r) => r.isFinal)) { try { rec.stop(); } catch (e) {} setTimeout(settle, 300); }
   };
   rec.onerror = (ev) => { failed = (ev && ev.error) || "error"; if (failed === "aborted" && alts.length) failed = null; setTimeout(settle, 50); };
   rec.onend = () => { setTimeout(settle, 50); };
@@ -295,7 +315,7 @@ function startRec(onResult, onFail) {
   recTimer = setTimeout(() => { try { rec.stop(); } catch (e) {} setTimeout(settle, 600); }, 10000);
 }
 function stopRec() { try { if (rec && recBusy) rec.stop(); } catch (e) {} }
-const FAIL_MSG = { "not-allowed": "マイク/音声認識が許可されていません。Safariの設定で許可してください", "service-not-allowed": "音声認識が許可されていません。設定でSiriと音声入力をオンにしてください", "no-speech": "声が聞き取れませんでした。もう少し近づいて、はっきり言ってみてください", "audio-capture": "マイクが見つかりません", network: "ネットワークエラー。電波の良い場所で再試行してください", aborted: "中断しました", unsupported: "この環境では音声認識が使えません" };
+const FAIL_MSG = { "not-allowed": "マイク/音声認識が許可されていません。Safariの「ぁあ」メニュー→Webサイトの設定でマイクを許可してください", "service-not-allowed": "音声認識が許可されていません。設定でSiriと音声入力をオンにしてください", "no-speech": "声が聞き取れませんでした。録音が赤くなってから、口元20cmではっきり言ってみてください", empty: "音は届きましたが英文になりませんでした。もう一度", "audio-capture": "マイクが見つかりません", network: "ネットワークエラー。電波の良い場所で再試行してください", aborted: "中断しました", unsupported: "この環境では音声認識が使えません", start: "録音を開始できませんでした。ページを再読み込みしてください" };
 
 /* ---------- session ---------- */
 let q = [], idx = 0, tries = 0, best = null, results = [];
@@ -338,7 +358,7 @@ $("itPlay").addEventListener("click", () => { stopRec(); playClip(q[idx]); });
 $("itRec").addEventListener("click", () => {
   if (recBusy && !SIM) { stopRec(); return; }
   if (tries >= MAX_TRIES) return toast("この文は3回まで。次へ進みましょう");
-  stopAudio(); unlockAudio();
+  releaseAudio();
   const w = q[idx];
   $("itRec").classList.add("live"); $("itRecT").textContent = "聞いています"; $("itRecS").textContent = "話し終えたら少し待つ"; $("itStatus").textContent = "";
   const finish = () => { $("itRec").classList.remove("live"); $("itRecT").textContent = tries >= MAX_TRIES ? "終了" : "もう一度"; $("itRecS").textContent = tries >= MAX_TRIES ? "3回挑戦しました" : "タップして話す"; $("itRec").disabled = tries >= MAX_TRIES; };
@@ -356,10 +376,10 @@ $("itRec").addEventListener("click", () => {
     $("itResult").hidden = false; $("itNext").disabled = false;
     finish();
   }, (why) => {
-    $("itStatus").textContent = FAIL_MSG[why] || ("認識できませんでした (" + why + ")");
+    $("itStatus").textContent = (FAIL_MSG[why] || "認識できませんでした") + " [" + why + "]";
     if (why === "not-allowed" || why === "service-not-allowed" || why === "unsupported") $("noSr").hidden = false;
     finish(); if (tries === 0) { $("itRec").disabled = false; $("itRecT").textContent = "録音"; }
-  });
+  }, (text) => { $("itStatus").textContent = "聞き取り中: " + text; });
 });
 function commit(skipped) {
   const w = q[idx]; const s = best ? best.score : 0;
@@ -382,9 +402,12 @@ function finishSession() {
   $("dnAvg").textContent = avg; $("dnBar").style.width = avg + "%";
   $("dnNote").textContent = avg >= 90 ? "ほぼ完璧。この調子で730点レベルの長い文も崩れないかを確かめていきましょう。" : avg >= 70 ? "通じるレベル。赤くなった語を翌日もう一度言えば定着します。" : "まだ聞き取ってもらえない語が多めです。お手本の直後に、同じ速さ・同じ抑揚で真似る(シャドーイング)のが近道です。";
   $("dnList").innerHTML = results.map((r) => '<div class="item"><span class="en">' + esc(r.ph) + '</span><span class="v">' + (r.skipped ? '<span class="muted">スキップ</span>' : Math.round(r.score * 100) + "%") + "</span></div>").join("");
-  $("dnBack").href = DOJO + "#pron" + avg;
+  $("dnBack").href = DOJO + "#pron" + avg; $("dnCode").textContent = avg;
   show("vDone");
 }
+/* A tapped claude.ai link is a universal link on iOS and opens the Claude app, which drops the hash; a script-driven
+   navigation stays in Safari, where the dojo (claude.ai) receives #pronNN. */
+$("dnBack").addEventListener("click", (ev) => { ev.preventDefault(); location.href = $("dnBack").href; });
 $("stGo").addEventListener("click", () => { unlockAudio(); startSession(); });
 $("dnAgain").addEventListener("click", () => { unlockAudio(); startSession(); });
 

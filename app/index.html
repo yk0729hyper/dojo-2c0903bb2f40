@@ -303,6 +303,8 @@ textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
     <a id="prOpen" class="btn primary block" href="#" target="_blank" rel="noopener">発音ページを開く (Safari)</a>
     <div id="prToday" class="note" hidden></div>
     <div class="muted">iPhoneの Safari で開いてください。初回は「音声認識を許可」をタップ。設定の Siri と音声入力がオンになっている必要があります。</div>
+    <div class="row"><span class="muted grow">「道場に戻る」で ✓ が付かなかったとき: 発音ページの平均一致率を入力</span></div>
+    <div class="row"><input id="prManual" type="number" inputmode="numeric" min="0" max="100" placeholder="例: 85" style="width:7em;flex:none"><button id="prManualGo" class="btn small" type="button">手入力で記録</button></div>
   </div>
   <div class="card">
     <h3>最近の一致率</h3>
@@ -724,10 +726,16 @@ function seededShuffle(arr, seed) {
   return a;
 }
 function ytPick(n) {
+  // 動画ごとに1件ずつ選ぶ(100選系の動画に偏らないように)。同じ日は同じ結果になるよう日付でシード
   const used = new Set(ytToday ? ytToday.ids : []);
   const left = YT.filter((x) => !ytDone[x.id] && !used.has(x.id));
   const seed = Number(today.replace(/-/g, "")) * 31 + used.size * 7919;
-  return seededShuffle(left, seed).slice(0, n).map((x) => x.id);
+  const byVideo = new Map();
+  for (const x of seededShuffle(left, seed)) { if (!byVideo.has(x.url)) byVideo.set(x.url, []); byVideo.get(x.url).push(x); }
+  const groups = seededShuffle([...byVideo.values()], seed + 1);
+  const out = [];
+  while (out.length < n && groups.some((g) => g.length)) for (const g of groups) { if (out.length >= n) break; const x = g.shift(); if (x) out.push(x.id); }
+  return out;
 }
 const saveYtDone = () => save("ytexpr/done", { map: ytDone });
 function renderYt() {
@@ -774,18 +782,25 @@ function renderPron() {
   const l = pronDays().slice(0, 7);
   $("prHistory").innerHTML = l.length ? l.map((x) => '<div class="skill"><span>' + esc(x.date.slice(5).replace("-", "/")) + '</span><div class="bar"><i style="width:' + Math.round(x.pron) + '%"></i></div><span class="v">' + Math.round(x.pron) + '%</span></div>').join("") : '<div class="muted">まだありません。</div>';
 }
-function applyPronHash() {
-  const m = /^#pron(\d{1,3})$/.exec(location.hash || ""); if (!m) return false;
-  const score = Math.max(0, Math.min(100, Number(m[1])));
+function recordPron(score) {
+  score = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
   const d = day(); const first = !d.menu.pron;
   d.pron = d.pron == null ? score : Math.max(d.pron, score); d.menu.pron = true;
   if (first) addXp(XP.pron);
   saveDay();
-  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
   toast(first ? "発音 " + score + "% を記録。+" + XP.pron + " XP" : "発音 " + score + "% を記録");
+}
+function applyPronHash() {
+  const m = /^#pron(\d{1,3})$/.exec(location.hash || ""); if (!m) return false;
+  recordPron(Number(m[1]));
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
   return true;
 }
 window.addEventListener("hashchange", () => { if (applyPronHash()) go("home"); });
+$("prManualGo").addEventListener("click", () => {
+  const v = $("prManual").value.trim(); if (v === "" || isNaN(Number(v))) return toast("0〜100 の数字を入力してください");
+  recordPron(Number(v)); $("prManual").value = ""; renderPron();
+});
 
 /* ---------- PLACEMENT TEST ---------- */
 let tq = [], tIdx = 0, tRes = {}, tl = [], tlIdx = 0, tlPlays = 0, tlSum = 0;
