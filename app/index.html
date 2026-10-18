@@ -993,9 +993,9 @@ const PROMPTS = [
 /* Speaking: conversational prompts (speak_prompts.json). The learner answers the partner's line by voice: either on the
    GitHub Pages speak page (the transcript comes back in the hash as #sp.<id>.<base64url>) or by iOS keyboard dictation
    into the textarea. The old written prompts above stay as a fallback when the prompt file cannot be loaded. */
-let SP = [], spCur = null, spForced = null;
+let SP = [], SPK_FILES = {}, spCur = null, spForced = null;
 async function loadSpeakPrompts() {
-  try { const r = await fetch("speak_prompts.json", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); SP = (await r.json()).prompts || []; } catch (e) { SP = []; }
+  try { const r = await fetch("speak_prompts.json", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); const j = await r.json(); SP = j.prompts || []; SPK_FILES = j.files || {}; } catch (e) { SP = []; SPK_FILES = {}; }
 }
 function spPool() { const c = profile.spCat || "all"; return c === "all" ? SP : SP.filter((p) => p.cat === c); }
 function renderWrite() {
@@ -1008,12 +1008,13 @@ function renderWrite() {
   $("wrPartner").textContent = spCur.partner || ""; $("wrPartner").hidden = !spCur.partner; $("wrSay").hidden = !spCur.partner;
   $("wrHint").textContent = spCur.hint ? "ヒント: " + spCur.hint : "";
   $("wrSpeak").href = PRON_URL + "speak.html?p=" + encodeURIComponent(spCur.id);
+  if (spCur.f && SPK_FILES[spCur.f]) prefetchMedia(SPK_FILES[spCur.f]);
   $("wrGrade").hidden = !sampleFn; $("wrStatus").hidden = !!sampleFn; if (!sampleFn) $("wrStatus").textContent = "添削機能はClaudeアプリ内で開くと使えます。";
   renderWrHistory();
 }
 $("spCat").addEventListener("change", () => { profile.spCat = $("spCat").value; spForced = null; saveProfile(); renderWrite(); $("wrResult").hidden = true; });
 $("wrAnother").addEventListener("click", () => { profile.wrOffset = (profile.wrOffset || 0) + 1; spForced = null; saveProfile(); renderWrite(); $("wrResult").hidden = true; });
-$("wrSay").addEventListener("click", () => spCur && spCur.partner && speak(spCur.partner));
+$("wrSay").addEventListener("click", () => { if (!spCur || !spCur.partner) return; if (!playItem(SPK_FILES, spCur, false)) speak(spCur.partner); });
 $("wrSayFix").addEventListener("click", () => { const t = $("wrCorrected").textContent; if (t) speak(t); });
 async function gradeSpeaking() {
   const ans = $("wrInput").value.trim(); if (ans.length < 6) return toast("もう少し話してから添削しましょう");

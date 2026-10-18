@@ -163,7 +163,15 @@ function stopRec() {
 }
 $("spRec").addEventListener("click", () => { if (!SR) { $("noSr").hidden = false; return; } if (live) stopRec(); else { speechSynthesis && speechSynthesis.cancel(); startRec(); } });
 $("spRetry").addEventListener("click", () => { text = ""; $("spHeard").textContent = ""; $("spGo").disabled = true; $("spRetry").disabled = true; });
-$("spSay").addEventListener("click", () => speak(cur.partner));
+/* The partner line has a recording (speak_prompts.json: files + f/s/e); the media fragment plays just that span.
+   Device speech synthesis is only the fallback. */
+let FILES = {}; const player = new Audio();
+$("spSay").addEventListener("click", () => {
+  if (cur && cur.f && FILES[cur.f] && cur.s != null) {
+    try { player.pause(); player.src = "../app/" + FILES[cur.f] + "#t=" + Math.max(0, cur.s - 0.15).toFixed(2) + "," + (cur.e + 0.12).toFixed(2); const p = player.play(); if (p && p.catch) p.catch(() => speak(cur.partner)); return; } catch (e) {}
+  }
+  speak(cur.partner);
+});
 $("spNext").addEventListener("click", () => { if (live) stopRec(); cur = pick(true); render(); });
 $("spCat").addEventListener("change", () => { st.cat = $("spCat").value; saveSt(); cur = pick(false); render(); });
 /* The transcript travels to the dojo in the URL hash (#sp.<id>.<base64url>), the only channel the dojo page can read. */
@@ -175,7 +183,7 @@ $("spGo").addEventListener("click", () => {
 $("hdDojo").addEventListener("click", () => { location.href = DOJO; });
 (async () => {
   if (!SR) $("noSr").hidden = false;
-  try { const r = await fetch("../app/speak_prompts.json"); if (!r.ok) throw new Error(r.status); ALL = (await r.json()).prompts || []; } catch (e) { $("noData").hidden = false; return; }
+  try { const r = await fetch("../app/speak_prompts.json"); if (!r.ok) throw new Error(r.status); const j = await r.json(); ALL = j.prompts || []; FILES = j.files || {}; } catch (e) { $("noData").hidden = false; return; }
   const want = /[?&]p=(s\d+)/.exec(location.search);
   cur = want ? (ALL.find((p) => p.id === want[1]) || pick(false)) : pick(false);
   render();
